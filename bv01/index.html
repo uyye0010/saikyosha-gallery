@@ -249,16 +249,30 @@ const SPACES=[
   furn:[['window','a',0.0,2.6,1.4],['rug',-0.6,0.6,4.6,3.2,'#a9b8a3'],['sofa',-0.6,-1.4,2.6,0,'#7f9481'],['sofa',-3.4,0.8,2.0,1.57,'#7f9481'],
         ['roundTable',-0.4,0.8,0.55],['arm',1.6,0.4,-1.2,'#c27d5f'],['arm',1.4,2.2,-2.2,'#c27d5f'],['shelfLow',4.6,3.6,2.2,3.14],['plant',5.4,-3.9],['plant',-5.4,-3.9],
         ['magOpen',-0.4,0.8,0.57,0.3],['magClosed',4.4,3.6,0.86,0]]},
- {id:'office',no:'03',RX:7.0,RZ:4.5,wall:0xf1efea,floor:{type:'wood',c:'#8b7058',l:'#73594a'},
-  name:L3('オフィスのラウンジ','企业休息区','Office lounge'),
-  lede:L3('働く場所に、号ごとに入れ替わる小さな展示を。','在工作的地方，放一个每期更换的小展览。','A small exhibition at work that changes with every issue.'),
-  uses:[L3('エントランスや来客スペースに置き、企業の文化発信に。','放在入口或会客区，作为企业的文化名片。','Place it in the entrance or guest area as part of your culture.'),
-        L3('休憩時間に、社員が作品と出会う時間をつくる。','让员工在休息时间与作品相遇。','Give staff a moment with art during their break.'),
-        L3('気に入った作品は購入や社内展示の相談もできる。','喜欢的作品可以咨询购买或在公司内展出。','Works you like can be bought or shown in the office.')],
-  items:[['art','a',-4.6,'H'],['art','a',-1.6,'B'],['art','l',1.4,'A'],['art','s',0.6,'K'],['art','r',-1.6,'G'],['art','r',1.6,'C']],
-  furn:[['table',-1.0,0.6,3.6,1.1],['chairRow',-1.0,0.6,3.6,1.1],['counter',4.6,-3.6,3.0,0.7,0],['plant',6.5,3.9],['sofa',4.2,2.2,2.4,3.14,'#3d4f55'],
-        ['lowTable',4.2,1.1,1.2,0.6],['magClosed',4.0,1.1,0.43,0.3],['magOpen',-1.6,0.6,0.73,-0.1],['window','a',2.4,1.6,1.6]]},
- {id:'library',no:'04',RX:6.5,RZ:5.0,wall:0xf4f0e6,floor:{type:'carpet',c:'#6f7d86',l:'#65727b'},
+ {id:'lobby',no:'03',RX:7.5,RZ:5.0,wall:0xf2eee6,floor:{type:'tile',c:'#e2ddd3',l:'#cbc4b7'},
+  name:L3('ホテルのロビー','酒店大堂','Hotel lobby'),
+  lede:L3('旅の途中で、その街のアートに出会う。','在旅途中，遇见这座城市的艺术。','Meet the art of a city on the way through.'),
+  uses:[L3('ラウンジのテーブルに置き、チェックインを待つあいだに手に取れる。','放在大堂休息区的桌上，等候入住时可以随手翻阅。','On lounge tables, to pick up while waiting to check in.'),
+        L3('収録作品を壁に掛け、ロビーを小さな展示空間に。','把收录作品挂在墙上，让大堂变成小型展示空间。','Hang works from the issue and turn the lobby into a small exhibition space.'),
+        L3('気に入った作品は、ゲストが購入の相談もできる。','客人喜欢的作品，也可以咨询购买。','Guests can ask about buying the works they like.')],
+  items:[['art','a',-5.0,'H'],['art','a',-2.2,'A'],['art','a',4.6,'G'],['art','l',1.2,'C'],['art','s',-1.4,'B'],['art','r',-0.6,'K']],
+  furn:[['counter',4.6,-4.0,3.6,0.8,0],['plant',2.2,-4.4],['plant',-6.9,-4.4],['plant',-6.9,4.4],
+        ['rug',-1.6,0.9,5.2,3.6,'#8e7d68'],['sofa',-1.6,-0.5,2.6,0,'#2f4a4a'],['sofa',-1.6,2.3,2.6,3.14,'#2f4a4a'],
+        ['lowTable',-1.6,0.9,1.5,0.7],['arm',-3.9,0.9,1.57,'#b8763f'],['arm',0.7,0.9,-1.57,'#b8763f'],
+        ['arm',3.6,1.4,2.36,'#d8cbb6'],['arm',5.2,1.4,-2.36,'#d8cbb6'],['roundTable',4.4,2.1,0.34],['lamp',-4.2,-0.9],
+        ['magOpen',-1.6,0.9,0.43,0.2],['magClosed',4.4,2.1,0.58,0.5],['window','l',-2.4,1.6,1.8]]},
+ {id:'suite',no:'04',RX:6.0,RZ:4.5,wall:0xeee6da,floor:{type:'carpet',c:'#b7a68c',l:'#ad9c82'},
+  name:L3('ホテルのVIPルーム','酒店VIP客房','Hotel VIP suite'),
+  lede:L3('部屋に置かれた一冊が、滞在をひとつの展覧会にする。','房间里的一本书，让这次入住成为一场展览。','One book in the room turns a stay into an exhibition.'),
+  uses:[L3('デスクやサイドテーブルに、ウェルカムブックとして置く。','作为欢迎读物，放在客房的书桌或边桌上。','Set it on the desk or side table as a welcome book.'),
+        L3('客室に掛ける作品と誌面を連動させ、部屋ごとの展示に。','让客房墙上的作品与杂志内容呼应，每个房间都是一个展览。','Link the works on the walls with the pages, so each room is its own show.'),
+        L3('日英併記なので、海外からのゲストにも読みやすい。','日英双语，海外客人也能轻松阅读。','Bilingual Japanese and English, easy for guests from abroad.')],
+  items:[['art','a',-1.4,'E'],['art','l',1.2,'I'],['art','s',-2.6,'L'],['art','r',1.4,'F']],
+  furn:[['bed',-1.4,-3.3,1.9,2.2,0,'#c9b48f'],['nightstand',-2.95,-4.1],['nightstand',0.15,-4.1],
+        ['rug',3.6,-2.2,3.0,2.4,'#7d5a46'],['roundTable',3.6,-2.2,0.42],['arm',2.7,-1.6,2.36,'#3d4f55'],['arm',4.5,-1.6,-2.36,'#3d4f55'],['lamp',5.4,-3.9],
+        ['table',-5.45,1.2,0.9,1.6],['chair',-4.65,1.2,-1.57],['shelfLow',0.6,4.25,2.2,3.14],['plant',-5.4,3.9],
+        ['magOpen',3.6,-2.2,0.57,0.3],['magClosed',-5.45,1.4,0.76,1.2],['window','r',-2.2,1.6,1.8]]},
+ {id:'library',no:'05',RX:6.5,RZ:5.0,wall:0xf4f0e6,floor:{type:'carpet',c:'#6f7d86',l:'#65727b'},
   name:L3('学校の図書室','学校图书室','School library'),
   lede:L3('美術館に行く前の、最初の一冊。','去美术馆之前的第一本书。','The first book before the first museum visit.'),
   uses:[L3('雑誌コーナーに置き、生徒がいつでも手に取れる。','放在杂志区，学生随时可以取阅。','In the magazine corner, open to students at any time.'),
@@ -268,7 +282,7 @@ const SPACES=[
   furn:[['shelf',-4.2,-4.65,4.2,0],['shelf',0.6,-4.65,3.0,0],['shelf',-6.15,-0.6,3.6,1.57],['shelf',-6.15,3.2,2.6,1.57],
         ['table',-1.4,0.4,2.6,1.1],['chairRow',-1.4,0.4,2.6,1.1],['table',2.6,0.4,2.0,1.1],['chairRow',2.6,0.4,2.0,1.1],
         ['stand',4.8,3.6,0],['plant',6.0,-4.4],['magOpen',-1.9,0.4,0.73,0.1]]},
- {id:'cafe',no:'05',RX:5.5,RZ:4.0,wall:0xebe2d3,floor:{type:'tile',c:'#d8cbb6',l:'#c2b399'},
+ {id:'cafe',no:'06',RX:5.5,RZ:4.0,wall:0xebe2d3,floor:{type:'tile',c:'#d8cbb6',l:'#c2b399'},
   name:L3('街のカフェ','社区咖啡馆','Neighbourhood café'),
   lede:L3('コーヒー一杯分の展覧会。','一杯咖啡的时间，看一场展览。','An exhibition for the length of a coffee.'),
   uses:[L3('テーブルや棚に置き、お客さまが自由に閲覧できる。','放在桌上或架子上，客人可以自由翻阅。','On tables and shelves for customers to browse freely.'),
@@ -384,6 +398,13 @@ function buildRoom(idx){
   stand:(x,z,rot)=>{const g=grp(x,z,rot);box(0.7,1.1,0.4,lwood,0,0.55,0,g,true);const m=new THREE.Mesh(new THREE.BoxGeometry(0.3,0.4,0.015),[mat(0xeeeeea),mat(0xeeeeea),mat(0xeeeeea),mat(0xeeeeea),new THREE.MeshStandardMaterial({map:COVER_TEX}),mat(0xeeeeea)]);
    m.position.set(0,1.3,0.06);m.rotation.x=-0.22;m.castShadow=true;g.add(m);reg(m,'mag',g,new THREE.Vector3(0,0,1).applyQuaternion(g.quaternion));block(x,z,0.7,0.4,rot)},
   cafeSet:(x,z)=>{F.roundTable(x,z,0.38);chair(x-0.72,z,Math.PI/2);chair(x+0.72,z,-Math.PI/2)},
+  bed:(x,z,w,len,rot,col)=>{const g=grp(x,z,rot);box(w,0.3,len,dark,0,0.15,0,g);box(w-0.04,0.24,len-0.06,white,0,0.42,0.02,g);
+   box(w+0.04,0.07,len*0.6,mat(new THREE.Color(col).getHex(),.95),0,0.57,len*0.2,g);box(w+0.3,1.15,0.1,wood,0,0.58,-len/2-0.04,g,true);
+   for(const sx of[-1,1])box(w*0.4,0.13,0.38,mat(0xfbf9f4,.9),sx*w*0.23,0.6,-len/2+0.32,g);block(x,z,w+0.3,len+0.1,rot,0.3)},
+  nightstand:(x,z)=>{const g=grp(x,z);box(0.5,0.52,0.42,wood,0,0.26,0,g,true);const sh=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.15,0.2,16),new THREE.MeshStandardMaterial({color:0xf3e6c8,emissive:0xf0d9a0,emissiveIntensity:.35}));sh.position.y=0.86;g.add(sh);box(0.03,0.26,0.03,dark,0,0.65,0,g);block(x,z,0.5,0.42,0,0.2)},
+  lamp:(x,z)=>{const g=grp(x,z);const b=new THREE.Mesh(new THREE.CylinderGeometry(0.16,0.18,0.04,18),dark);b.position.y=0.02;g.add(b);box(0.03,1.5,0.03,dark,0,0.77,0,g);
+   const sh=new THREE.Mesh(new THREE.CylinderGeometry(0.17,0.24,0.3,18),new THREE.MeshStandardMaterial({color:0xf3e6c8,emissive:0xf0d9a0,emissiveIntensity:.35}));sh.position.y=1.55;sh.castShadow=true;g.add(sh);block(x,z,0.4,0.4,0,0.2)},
+  chair:(x,z,rot)=>{chair(x,z,rot);block(x,z,0.5,0.5,0,0.15)},
   magOpen:(x,z,y,rot)=>{const g=grp(x,z,rot);g.position.y=y+0.004;const pages=[ART_CV[ART[(x*7+z*3|0)%12<0?0:Math.abs((x*7+z*3)|0)%12].id],ART_CV[ART[Math.abs((x*5+z*11)|0)%12].id]];
    pages.forEach((cv,i)=>{const c=document.createElement('canvas');c.width=240;c.height=320;const q=c.getContext('2d');q.fillStyle='#f7f5ef';q.fillRect(0,0,240,320);q.drawImage(cv,24,40,192,192*cv.height/cv.width);
     q.fillStyle='#55504a';q.font='11px sans-serif';for(let k=0;k<5;k++)q.fillRect(24,262+k*9,150+(k%2)*30,2);
@@ -445,7 +466,7 @@ let spaceIdx=0,mode='walk',focused=null,route=[],pending=null,hovered=null,lastA
 const keys={};
 const url=p=>SITE+(lang==='ja'?'':'/'+lang)+p;
 function setHint(){$('#hint').textContent=T[lang][mode==='walk'?'hintWalk':'hintClick']}
-function renderSpaces(){const s=$('#spaces');s.innerHTML='';SPACES.forEach((S,i)=>{const b=document.createElement('button');b.setAttribute('aria-pressed',i===spaceIdx);b.innerHTML=`<b>${S.no}</b>${S.name[lang]}`;b.onclick=()=>goSpace(i);s.appendChild(b)})}
+function renderSpaces(){const s=$('#spaces');s.innerHTML='';SPACES.forEach((S,i)=>{const b=document.createElement('button');b.setAttribute('aria-pressed',i===spaceIdx);b.innerHTML=`<b>${S.no}</b>${S.name[lang]}`;b.onclick=()=>goSpace(i);s.appendChild(b);if(i===spaceIdx)requestAnimationFrame(()=>{s.scrollLeft=Math.max(0,b.offsetLeft-s.offsetLeft-16)})})}
 function renderCard(){const S=SPACES[spaceIdx];$('#cK').textContent='SPACE '+S.no;$('#cName').textContent=S.name[lang];$('#cLede').textContent=S.lede[lang];
  $('#cUses').innerHTML=S.uses.map(u=>`<li>${u[lang]}</li>`).join('');$('#cContact').href=url('/contact');$('#cAbout').href=url('/between-venues');
  $('#card').hidden=!cardOpen;$('#cardOpen').hidden=cardOpen}
