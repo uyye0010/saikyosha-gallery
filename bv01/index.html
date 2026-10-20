@@ -19,7 +19,6 @@
 html,body{height:100%}
 *,*::before,*::after{box-sizing:border-box}
 [hidden]{display:none!important}
-[hidden]{display:none!important}
 body{margin:0;background:var(--sumi);color:var(--kinari);font-family:var(--f-body);overflow:hidden;-webkit-tap-highlight-color:transparent}
 #stage{position:fixed;inset:0;touch-action:none;cursor:grab}
 #stage.pointing{cursor:pointer}#stage.dragging{cursor:grabbing}
@@ -114,6 +113,13 @@ body.focus #sheet{transform:none}
   #rot{bottom:calc(104px + env(safe-area-inset-bottom,0px))}
 }
 @media (prefers-reduced-motion:reduce){#sheet,#strip,#card{transition:none}}
+/* embedded in the Saikyosha site: the page around it carries the title and language */
+body.embed .brand,body.embed .seg[aria-label="language"]{display:none}
+body.embed #top{padding-top:10px;padding-bottom:14px;gap:8px;background:linear-gradient(var(--sumi) 0%,rgba(28,26,23,.0) 100%)}
+body.embed .row1{flex-direction:row;justify-content:flex-end}
+body.embed #card,body.embed #cardOpen{top:auto;bottom:calc(112px + env(safe-area-inset-bottom,0px))}
+body.embed #card{max-height:calc(100% - 200px);overflow-y:auto}
+body.embed #hint{display:none}
 </style>
 </head>
 <body>
@@ -434,7 +440,8 @@ visitor.add(body,head,nose,ring);scene.add(visitor);
 const marker=new THREE.Mesh(new THREE.RingGeometry(0.12,0.2,24),new THREE.MeshBasicMaterial({color:0x1c1a17,transparent:true,opacity:0}));marker.rotation.x=-Math.PI/2;marker.position.y=0.014;scene.add(marker);
 
 // ---------- UI state ----------
-let spaceIdx=0,mode='walk',focused=null,route=[],pending=null,hovered=null,lastArrive=null,overviewZoom=1,tw=null,cardOpen=innerWidth>720;
+const EMBED=new URLSearchParams(location.search).get('embed')==='1';if(EMBED)document.body.classList.add('embed');
+let spaceIdx=0,mode='walk',focused=null,route=[],pending=null,hovered=null,lastArrive=null,overviewZoom=1,tw=null,cardOpen=innerWidth>720&&!EMBED;
 const keys={};
 const url=p=>SITE+(lang==='ja'?'':'/'+lang)+p;
 function setHint(){$('#hint').textContent=T[lang][mode==='walk'?'hintWalk':'hintClick']}
