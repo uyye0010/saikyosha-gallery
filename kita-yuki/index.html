@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>西京社 Online Gallery</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;600&family=Zen+Kaku+Gothic+New:wght@400;500&family=Cormorant+Garamond:ital,wght@0,500;1,500&display=swap">
+<style>
+/* Layout: one full-screen 45° isometric room; HUD floats on the edges; a side sheet (desktop) / bottom sheet (phone) carries the work's caption and buy link. */
+:root{
+  --sumi:#1c1a17; --sumi-2:#2a2723; --kinari:#f2ede2; --suna:#e6dfd1; --shu:#b8442b; --tetsu:#23504a; --nibi:#8d867a;
+  --f-display:"Shippori Mincho","Hiragino Mincho ProN","Yu Mincho",serif;
+  --f-body:"Zen Kaku Gothic New","Hiragino Sans","Noto Sans JP",system-ui,sans-serif;
+  --f-latin:"Cormorant Garamond","Times New Roman",serif;
+  color-scheme:dark;
+}
+html,body{height:100%}
+*,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--sumi);color:var(--kinari);font-family:var(--f-body);overflow:hidden;-webkit-tap-highlight-color:transparent}
+#stage{position:fixed;inset:0;touch-action:none;cursor:grab}
+#stage.pointing{cursor:pointer}
+#stage.dragging{cursor:grabbing}
+canvas{display:block}
+.hud{position:fixed;z-index:5;pointer-events:none}
+.hud>*{pointer-events:auto}
+#top{top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:flex-start;gap:12px;
+  padding-top:calc(14px + env(safe-area-inset-top,0px));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  background:linear-gradient(var(--sumi) 0%,rgba(28,26,23,.0) 100%);padding-bottom:28px}
+.brand{display:flex;flex-direction:column;gap:4px;min-width:0}
+.eyebrow{font-family:var(--f-latin);font-size:12px;letter-spacing:.24em;text-transform:uppercase;color:var(--nibi)}
+.ttl{font-family:var(--f-display);font-size:clamp(18px,2.4vw,26px);font-weight:600;letter-spacing:.06em;line-height:1.3;text-wrap:balance}
+.ttl small{display:inline-block;margin-left:.6em;font-family:var(--f-body);font-size:12px;font-weight:400;letter-spacing:.06em;color:var(--suna);opacity:.75}
+.ctrls{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.seg{display:flex;border:1px solid rgba(242,237,226,.28);background:rgba(28,26,23,.72);backdrop-filter:blur(6px)}
+.seg button{all:unset;cursor:pointer;font-size:12.5px;letter-spacing:.06em;padding:8px 12px;color:var(--suna);white-space:nowrap}
+.seg button[aria-pressed="true"]{background:var(--kinari);color:var(--sumi)}
+.seg button:focus-visible,.chip:focus-visible,.btn:focus-visible{outline:2px solid var(--shu);outline-offset:2px}
+#hint{left:50%;transform:translateX(-50%);bottom:calc(112px + env(safe-area-inset-bottom,0px));font-size:12.5px;letter-spacing:.06em;color:var(--suna);
+  background:rgba(28,26,23,.72);border:1px solid rgba(242,237,226,.16);padding:7px 14px;white-space:nowrap;max-width:calc(100vw - 32px);overflow:hidden;text-overflow:ellipsis;transition:opacity .4s}
+#strip{left:0;right:0;bottom:0;padding-bottom:calc(14px + env(safe-area-inset-bottom,0px));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-top:24px;background:linear-gradient(rgba(28,26,23,0),var(--sumi) 60%);display:flex;gap:10px;overflow-x:auto;scrollbar-width:none;transition:transform .45s,opacity .45s}
+#strip::-webkit-scrollbar{display:none}
+.chip{all:unset;cursor:pointer;flex:none;display:flex;flex-direction:column;gap:6px;width:92px}
+.chip .th{height:62px;background:var(--sumi-2) center/cover no-repeat;border:1px solid rgba(242,237,226,.18);transition:border-color .2s,transform .2s}
+.chip:hover .th,.chip.on .th{border-color:var(--shu);transform:translateY(-2px)}
+.chip span{font-size:11px;letter-spacing:.04em;color:var(--suna);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chip b{font-family:var(--f-latin);font-weight:500;color:var(--nibi);margin-right:5px}
+#rot{right:max(16px,env(safe-area-inset-right,0px));bottom:calc(112px + env(safe-area-inset-bottom,0px));display:flex;gap:8px;transition:opacity .4s}
+#rot button{all:unset;cursor:pointer;width:44px;height:44px;display:grid;place-items:center;border:1px solid rgba(242,237,226,.3);background:rgba(28,26,23,.78);color:var(--kinari)}
+#rot button:hover{border-color:var(--shu);color:#fff}#rot button:focus-visible{outline:2px solid var(--shu);outline-offset:2px}
+body.focus #rot{opacity:0;pointer-events:none}
+body.focus #strip{transform:translateY(110%);opacity:0}
+body.focus #hint{opacity:0}
+
+#sheet{position:fixed;z-index:6;top:0;right:0;bottom:0;width:min(380px,100%);background:var(--kinari);color:var(--sumi);
+  transform:translateX(102%);transition:transform .55s cubic-bezier(.2,.7,.2,1);display:flex;flex-direction:column;
+  padding-top:calc(28px + env(safe-area-inset-top,0px));padding-bottom:calc(24px + env(safe-area-inset-bottom,0px));
+  padding-left:28px;padding-right:max(28px,env(safe-area-inset-right,0px));box-sizing:border-box;gap:18px;overflow-y:auto}
+body.focus #sheet{transform:none}
+#sheet .no{font-family:var(--f-latin);font-size:13px;letter-spacing:.22em;color:var(--shu)}
+#sheet h2{margin:0;font-family:var(--f-display);font-weight:600;font-size:26px;letter-spacing:.06em;line-height:1.35;text-wrap:balance}
+#sheet .artist{font-size:13px;letter-spacing:.08em;color:#5d574e}
+#sheet dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:9px 18px;font-size:13px;border-top:1px solid #d5ccbb;padding-top:16px}
+#sheet dt{color:#7a7368;letter-spacing:.06em}
+#sheet dd{margin:0;font-variant-numeric:tabular-nums}
+#sheet p{margin:0;font-size:13.5px;line-height:1.9;color:#3b3732}
+.price{font-family:var(--f-display);font-size:22px;letter-spacing:.04em}
+.price small{font-family:var(--f-body);font-size:11.5px;color:#7a7368;margin-left:8px;letter-spacing:.04em}
+.acts{display:flex;flex-direction:column;gap:10px;margin-top:auto}
+.btn{all:unset;box-sizing:border-box;cursor:pointer;text-align:center;padding:13px 16px;font-size:14px;letter-spacing:.1em}
+.btn.buy{background:var(--shu);color:var(--kinari)}
+.btn.buy:hover{background:#9f3923}
+.btn.back{border:1px solid var(--sumi);color:var(--sumi)}
+.btn.back:hover{background:var(--sumi);color:var(--kinari)}
+.note{font-size:11px;color:#8a8275;letter-spacing:.04em;line-height:1.7}
+.pill{align-self:flex-start;font-size:11px;letter-spacing:.12em;padding:3px 9px;border:1px solid var(--tetsu);color:var(--tetsu)}
+.pill.sold{border-color:#9a9286;color:#9a9286}
+#loader{position:fixed;inset:0;z-index:9;display:grid;place-items:center;background:var(--sumi);font-family:var(--f-latin);letter-spacing:.3em;color:var(--nibi);font-size:13px;transition:opacity .6s}
+@media (max-width:720px){
+  #sheet{top:auto;left:0;width:100%;max-height:56%;transform:translateY(104%);padding-top:22px;gap:12px;
+    padding-left:max(20px,env(safe-area-inset-left,0px));padding-right:max(20px,env(safe-area-inset-right,0px))}
+  #sheet h2{font-size:21px}
+  #sheet dl{gap:6px 14px;padding-top:12px}
+  .acts{flex-direction:row;margin-top:6px}.acts .btn{flex:1;padding:11px 8px}
+  .ctrls{flex-direction:column;align-items:flex-end;gap:6px;flex:none}
+  .seg button{font-size:11.5px;padding:6px 9px}
+  .brand{flex:1}
+  .ttl small{display:block;margin:2px 0 0}
+  body.focus #top{opacity:0;pointer-events:none}
+  #top{transition:opacity .4s}
+  #rot{bottom:calc(150px + env(safe-area-inset-bottom,0px))}
+  #hint{bottom:calc(104px + env(safe-area-inset-bottom,0px));font-size:11.5px}
+}
+@media (prefers-reduced-motion:reduce){#sheet,#strip{transition:none}}
+</style>
+</head>
+<body>
+
+
+<div id="stage" aria-label="3D exhibition room"></div>
+<div id="loader">SAIKYOSHA · ONLINE GALLERY</div>
+
+<div class="hud" id="top">
+  <div class="brand">
+    <div class="eyebrow" data-t="eyebrow">Saikyosha · Online Exhibition · Prototype</div>
+    <div class="ttl"><span data-t="title">写真展「北ゆき」</span><small data-t="sub">試作 ／ 作品画像はすべて仮のものです</small></div>
+  </div>
+  <div class="ctrls">
+    <div class="seg" role="group" aria-label="mode">
+      <button id="mWalk" aria-pressed="true" data-t="walk">歩いて鑑賞</button>
+      <button id="mClick" aria-pressed="false" data-t="click">クリックで鑑賞</button>
+    </div>
+    <div class="seg" role="group" aria-label="language">
+      <button data-lang="ja" aria-pressed="true">日本語</button>
+      <button data-lang="zh" aria-pressed="false">中文</button>
+      <button data-lang="en" aria-pressed="false">EN</button>
+    </div>
+  </div>
+</div>
+<div class="hud" id="hint"></div>
+<div class="hud" id="rot">
+  <button id="rotL" data-tt="rotL" aria-label="rotate"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4.5h4.5"/></svg></button>
+  <button id="rotR" data-tt="rotR" aria-label="rotate"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M20 12a8 8 0 1 1-2.4-5.7"/><path d="M20 4v4.5h-4.5"/></svg></button>
+</div>
+<div class="hud" id="strip"></div>
+
+<aside id="sheet" aria-live="polite">
+  <span class="no" id="sNo"></span>
+  <h2 id="sTitle"></h2>
+  <div class="artist" id="sArtist"></div>
+  <span class="pill" id="sState"></span>
+  <dl id="sMeta"></dl>
+  <p id="sText"></p>
+  <div class="price" id="sPrice"></div>
+  <div class="acts">
+    <a class="btn buy" id="sBuy" href="https://www.no-art.shop" target="_blank" rel="noopener"></a>
+    <button class="btn back" id="sBack"></button>
+  </div>
+  <div class="note" data-t="note"></div>
+</aside>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(()=>{
+// ---------- copy ----------
+const T={
+ ja:{eyebrow:'Saikyosha · Online Exhibition · Prototype',title:'写真展「北ゆき」',sub:'試作 ／ 作品画像はすべて仮のものです',walk:'歩いて鑑賞',click:'クリックで鑑賞',
+  hintWalk:'床をクリック（タップ）で移動、作品の前に立つと拡大。右下のボタンで展示室を回転できます。',
+  hintClick:'作品をクリック（タップ）で拡大。ドラッグで移動、ホイール／ピンチで拡大縮小、右下のボタンで回転。',
+  rotL:'左に回す（Q）',rotR:'右に回す（E）',buy:'オンラインショップで購入する ↗',buyBook:'この本を購入する ↗',back:'展示室に戻る',size:'サイズ',medium:'技法',year:'制作年',edition:'エディション',
+  avail:'販売中',sold:'売約済',book:'刊行物',taxin:'税込',note:'購入はオンラインショップ（no-art.shop）で手続きします。作品・価格は試作用の例です。',artist:'MinMin'},
+ zh:{eyebrow:'Saikyosha · Online Exhibition · Prototype',title:'摄影展「北行」',sub:'样品 ／ 作品图片均为示意',walk:'走动观展',click:'点击观展',
+  hintWalk:'点击（轻触）地面移动，走到作品前自动放大。右下按钮可旋转展厅。',
+  hintClick:'点击（轻触）作品放大。拖动平移，滚轮／双指缩放，右下按钮旋转。',
+  rotL:'向左旋转（Q）',rotR:'向右旋转（E）',buy:'前往网店购买 ↗',buyBook:'购买本书 ↗',back:'返回展厅',size:'尺寸',medium:'工艺',year:'年份',edition:'版数',
+  avail:'在售',sold:'已售',book:'出版物',taxin:'含税',note:'购买将在网店（no-art.shop）完成。作品与价格均为样品示例。',artist:'MinMin'},
+ en:{eyebrow:'Saikyosha · Online Exhibition · Prototype',title:'Northbound — Photographs',sub:'Prototype / all images are placeholders',walk:'Walk',click:'Click to view',
+  hintWalk:'Click or tap the floor to walk; stand in front of a work to see it up close. Rotate the room with the buttons at bottom right.',
+  hintClick:'Click or tap a work to view it. Drag to pan, scroll or pinch to zoom, rotate with the buttons at bottom right.',
+  rotL:'Rotate left (Q)',rotR:'Rotate right (E)',buy:'Buy in the online shop ↗',buyBook:'Buy this book ↗',back:'Back to the room',size:'Size',medium:'Medium',year:'Year',edition:'Edition',
+  avail:'Available',sold:'Sold',book:'Publication',taxin:'tax incl.',note:'Purchases are completed in the online shop (no-art.shop). Works and prices are examples for this prototype.',artist:'MinMin'}
+};
+// works: wall a = back(z-), l = left(x-), p = partition front. w/h in metres.
+const W=[
+ {id:1,wall:'a',x:-4.4,w:1.2,h:0.86,scene:'station',price:88000,state:'avail',year:2025,ed:'1/5',
+  t:{ja:'夜の駅',zh:'夜晚的车站',en:'Night Station'},m:{ja:'アーカイバルピグメントプリント',zh:'艺术微喷',en:'Archival pigment print'},
+  d:{ja:'終電を待つホームの灯り。雪が音を吸い込み、駅だけが起きている。',zh:'等待末班车的站台灯光。雪吸走了声音，只有车站还醒着。',en:'Platform lights before the last train. Snow absorbs every sound; only the station is awake.'}},
+ {id:2,wall:'a',x:-1.5,w:1.5,h:1.0,scene:'field',price:120000,state:'avail',year:2025,ed:'2/5',
+  t:{ja:'白い原',zh:'白色原野',en:'White Field'},m:{ja:'アーカイバルピグメントプリント',zh:'艺术微喷',en:'Archival pigment print'},
+  d:{ja:'地平線が消えるほどの雪原。一本の電柱だけが距離を教えてくれる。',zh:'雪原辽阔得看不见地平线，只有一根电线杆提示着距离。',en:'A snowfield so wide the horizon disappears. A single pole is the only measure of distance.'}},
+ {id:3,wall:'a',x:1.5,w:1.0,h:1.25,scene:'birch',price:95000,state:'sold',year:2024,ed:'5/5',
+  t:{ja:'白樺',zh:'白桦',en:'Birches'},m:{ja:'ゼラチンシルバープリント',zh:'银盐照片',en:'Gelatin silver print'},
+  d:{ja:'朝の林。幹の白と雪の白、その間にある少しの灰色。',zh:'清晨的树林。树干的白与雪的白之间，有一点点灰。',en:'Morning woods. Between the white of the trunks and the white of the snow, a little grey.'}},
+ {id:4,wall:'a',x:4.3,w:1.4,h:0.95,scene:'lake',price:110000,state:'avail',year:2025,ed:'1/5',
+  t:{ja:'凍る湖',zh:'冰封的湖',en:'Frozen Lake'},m:{ja:'アーカイバルピグメントプリント',zh:'艺术微喷',en:'Archival pigment print'},
+  d:{ja:'湖の上を歩く人影。氷の厚さを知っている人の歩き方。',zh:'湖面上行走的人影，是知道冰有多厚的人的步伐。',en:'A figure walking on the lake, with the gait of someone who knows how thick the ice is.'}},
+ {id:5,wall:'l',z:-2.0,w:1.3,h:0.9,scene:'dusk',price:76000,state:'avail',year:2025,ed:'3/7',
+  t:{ja:'夕刻',zh:'黄昏',en:'Dusk'},m:{ja:'アーカイバルピグメントプリント',zh:'艺术微喷',en:'Archival pigment print'},
+  d:{ja:'午後三時に始まる夕方。空の色が一番長く残る季節。',zh:'下午三点就开始的黄昏，是天空颜色停留最久的季节。',en:'An evening that begins at three. The season when the colour of the sky lingers longest.'}},
+ {id:6,wall:'l',z:1.3,w:0.9,h:1.2,scene:'window',price:68000,state:'avail',year:2024,ed:'2/7',
+  t:{ja:'車窓',zh:'车窗',en:'Train Window'},m:{ja:'アーカイバルピグメントプリント',zh:'艺术微喷',en:'Archival pigment print'},
+  d:{ja:'曇った窓を指でなぞった跡。その向こうに流れる北の町。',zh:'在起雾的车窗上用手指划过的痕迹，窗外流过北方的小镇。',en:'A line traced on a fogged window, and the northern town sliding past behind it.'}},
+ {id:7,wall:'p',x:0.6,w:1.25,h:0.85,scene:'road',price:82000,state:'avail',year:2025,ed:'1/5',
+  t:{ja:'一本道',zh:'一条路',en:'One Road'},m:{ja:'アーカイバルピグメントプリント',zh:'艺术微喷',en:'Archival pigment print'},
+  d:{ja:'除雪されたばかりの道。両側の雪の壁が、行き先だけを残している。',zh:'刚扫过雪的路，两侧的雪墙只留下了去处。',en:'A freshly ploughed road. The walls of snow on either side leave only the way ahead.'}},
+ {id:8,wall:'p',x:3.3,w:1.25,h:0.85,scene:'sea',price:98000,state:'avail',year:2025,ed:'2/5',
+  t:{ja:'流氷',zh:'流冰',en:'Drift Ice'},m:{ja:'アーカイバルピグメントプリント',zh:'艺术微喷',en:'Archival pigment print'},
+  d:{ja:'海が白く固まる朝。遠くで氷どうしがきしむ音がする。',zh:'海面凝成白色的早晨，远处传来浮冰相互挤压的声音。',en:'A morning when the sea turns solid white. Far off, the ice creaks against itself.'}},
+];
+const BOOK={id:'B',t:{ja:'写真集『北ゆき』',zh:'摄影集《北行》',en:'Photobook “Kita-yuki”'},m:{ja:'電子書籍',zh:'电子书',en:'E-book'},year:'2026.09',
+  d:{ja:'本展の作品を収めた MinMin の写真集。西京社刊。',zh:'收录本展作品的 MinMin 摄影集，西京社出版。',en:'MinMin’s photobook collecting the works in this exhibition. Published by Saikyosha.'}};
+
+let lang='ja';
+const $=s=>document.querySelector(s);
+
+// ---------- placeholder photographs (procedural) ----------
+function rnd(seed){let s=seed;return()=>{s=(s*16807)%2147483647;return(s-1)/2147483646}}
+function photo(scene,w,h,seed){
+  const c=document.createElement('canvas');c.width=w;c.height=h;const g=c.getContext('2d');const r=rnd(seed*97+13);
+  const grad=(y0,y1,stops)=>{const L=g.createLinearGradient(0,y0,0,y1);stops.forEach(([o,col])=>L.addColorStop(o,col));return L};
+  const hz=h*({field:.5,birch:.62,lake:.48,dusk:.6,road:.46,sea:.42,station:.55,window:.55}[scene]||.5);
+  // sky
+  const skies={field:[[0,'#cfd6db'],[1,'#eef0ef']],birch:[[0,'#d8dcdc'],[1,'#f1f1ee']],lake:[[0,'#9fb0bd'],[1,'#dfe5e8']],
+    dusk:[[0,'#3b4a66'],[.6,'#c48b7b'],[1,'#e9c3a4']],road:[[0,'#bfc8cf'],[1,'#e9ecec']],sea:[[0,'#7f93a3'],[1,'#d9e0e3']],
+    station:[[0,'#0e1622'],[1,'#22324a']],window:[[0,'#7d8a96'],[1,'#c9d0d4']]};
+  g.fillStyle=grad(0,hz,skies[scene]);g.fillRect(0,0,w,hz);
+  // ground
+  const grounds={dusk:[[0,'#c9c3c4'],[1,'#8e8a95']],station:[[0,'#3a4558'],[1,'#d7dde6']],sea:[[0,'#e8edf0'],[1,'#c4ced4']]};
+  g.fillStyle=grad(hz,h,grounds[scene]||[[0,'#f3f4f2'],[1,'#d9dcdc']]);g.fillRect(0,hz,w,h-hz);
+  g.lineCap='round';
+  if(scene==='field'){g.strokeStyle='#4a4d50';g.lineWidth=w*.006;g.beginPath();g.moveTo(w*.68,hz-h*.18);g.lineTo(w*.68,hz+h*.02);g.stroke();
+    g.lineWidth=w*.002;g.beginPath();g.moveTo(w*.6,hz-h*.16);g.quadraticCurveTo(w*.66,hz-h*.13,w*.76,hz-h*.17);g.stroke();
+    g.fillStyle='rgba(80,84,88,.25)';g.fillRect(0,hz-1,w,2);}
+  if(scene==='birch'){for(let i=0;i<14;i++){const x=r()*w,bw=w*(.008+r()*.018);g.fillStyle=`rgba(236,236,232,${.75+r()*.25})`;g.fillRect(x,0,bw,hz+h*.08*r());
+    g.fillStyle='rgba(40,40,40,.55)';for(let k=0;k<9;k++){g.fillRect(x,r()*hz,bw*(.4+r()*.6),h*.006);}}
+    g.fillStyle='rgba(120,120,118,.18)';for(let i=0;i<30;i++)g.fillRect(r()*w,r()*hz,w*.002,h*.12);}
+  if(scene==='lake'){g.fillStyle='rgba(60,70,80,.35)';g.fillRect(0,hz-h*.03,w,h*.03);
+    g.fillStyle='#2b2f33';const fx=w*.58,fy=hz+h*.16;g.fillRect(fx,fy-h*.06,w*.012,h*.06);g.beginPath();g.arc(fx+w*.006,fy-h*.072,w*.008,0,7);g.fill();
+    g.fillStyle='rgba(40,45,50,.18)';g.fillRect(fx-w*.01,fy,w*.05,h*.006);}
+  if(scene==='dusk'){g.fillStyle='rgba(255,226,190,.9)';g.beginPath();g.arc(w*.3,hz-h*.04,w*.03,0,7);g.fill();
+    g.fillStyle='#3d3b46';for(let i=0;i<w;i+=w*.02){const th=h*(.03+r()*.08);g.beginPath();g.moveTo(i,hz);g.lineTo(i+w*.01,hz-th);g.lineTo(i+w*.02,hz);g.fill();}}
+  if(scene==='road'){g.fillStyle='#8c9297';g.beginPath();g.moveTo(w*.47,hz);g.lineTo(w*.53,hz);g.lineTo(w*.8,h);g.lineTo(w*.2,h);g.fill();
+    g.fillStyle='#f4f5f3';g.beginPath();g.moveTo(0,hz+h*.02);g.lineTo(w*.46,hz);g.lineTo(w*.18,h);g.lineTo(0,h);g.fill();
+    g.beginPath();g.moveTo(w,hz+h*.02);g.lineTo(w*.54,hz);g.lineTo(w*.82,h);g.lineTo(w,h);g.fill();
+    g.strokeStyle='#e9a23b';g.lineWidth=w*.004;g.beginPath();g.moveTo(w*.86,h*.9);g.lineTo(w*.86,h*.55);g.stroke();}
+  if(scene==='sea'){for(let i=0;i<60;i++){const y=hz+(h-hz)*Math.pow(r(),.7),s=w*(.02+(y-hz)/(h-hz)*.09);g.fillStyle=`rgba(${240-r()*20},${244-r()*16},246,.95)`;
+    g.beginPath();g.ellipse(r()*w,y,s,s*.22,0,0,7);g.fill();g.fillStyle='rgba(90,110,125,.25)';g.fillRect(r()*w,y+s*.2,s,1.5);}}
+  if(scene==='station'){g.fillStyle='#596273';g.fillRect(0,hz-h*.02,w,h*.04);
+    for(let i=0;i<5;i++){const x=w*(.12+i*.2);g.fillStyle='#1a2130';g.fillRect(x,hz-h*.3,w*.006,h*.3);
+      const L=g.createRadialGradient(x,hz-h*.3,0,x,hz-h*.3,w*.12);L.addColorStop(0,'rgba(255,214,150,.95)');L.addColorStop(1,'rgba(255,214,150,0)');g.fillStyle=L;g.fillRect(x-w*.12,hz-h*.42,w*.24,h*.3);}
+    g.fillStyle='rgba(255,255,255,.7)';for(let i=0;i<220;i++)g.fillRect(r()*w,r()*h,1.6,1.6);}
+  if(scene==='window'){g.fillStyle='#4f5963';for(let i=0;i<12;i++){const bx=r()*w,bh=h*(.05+r()*.15);g.fillRect(bx,hz-bh,w*(.04+r()*.08),bh);}
+    g.fillStyle='rgba(225,230,233,.55)';g.fillRect(0,0,w,h);
+    g.strokeStyle='rgba(120,135,145,.9)';g.lineWidth=w*.03;g.beginPath();g.moveTo(w*.2,h*.7);g.bezierCurveTo(w*.35,h*.35,w*.55,h*.6,w*.8,h*.3);g.stroke();
+    g.fillStyle='rgba(255,255,255,.5)';for(let i=0;i<40;i++){g.beginPath();g.arc(r()*w,r()*h,w*.004*r()+1,0,7);g.fill();}}
+  // grain + vignette
+  const id=g.getImageData(0,0,w,h),d=id.data;for(let i=0;i<d.length;i+=4){const n=(r()-.5)*14;d[i]+=n;d[i+1]+=n;d[i+2]+=n}g.putImageData(id,0,0);
+  const v=g.createRadialGradient(w/2,h/2,Math.min(w,h)*.3,w/2,h/2,Math.max(w,h)*.75);v.addColorStop(0,'rgba(0,0,0,0)');v.addColorStop(1,'rgba(0,0,0,.18)');g.fillStyle=v;g.fillRect(0,0,w,h);
+  return c;
+}
+function bookCover(){const c=document.createElement('canvas');c.width=256;c.height=360;const g=c.getContext('2d');
+  g.fillStyle='#ecebe6';g.fillRect(0,0,256,360);g.drawImage(photo('field',200,140,9),28,60,200,140);
+  g.fillStyle='#1c1a17';g.font='600 30px "Shippori Mincho",serif';g.textAlign='center';g.fillText('北ゆき',128,260);
+  g.font='14px "Cormorant Garamond",serif';g.fillText('MinMin',128,290);g.font='11px sans-serif';g.fillStyle='#b8442b';g.fillText('SAIKYOSHA',128,330);return c}
+
+// ---------- three.js scene ----------
+const stage=$('#stage');
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.outputEncoding=THREE.sRGBEncoding;stage.appendChild(renderer.domElement);
+const scene=new THREE.Scene();scene.background=new THREE.Color(0x1c1a17);scene.fog=new THREE.Fog(0x1c1a17,40,70);
+const VIEW=12;let aspect=1;
+const camera=new THREE.OrthographicCamera(-6,6,6,-6,0.02,200);
+let azim=Math.PI/4,azimGoal=azim;const ISO=new THREE.Vector3();function setISO(){ISO.set(Math.SQRT2*Math.cos(azim),1.05,Math.SQRT2*Math.sin(azim)).normalize().multiplyScalar(40)}setISO();
+const target=new THREE.Vector3(0,0.8,0);
+camera.position.copy(target).add(ISO);camera.lookAt(target);camera.zoom=1;
+
+scene.add(new THREE.HemisphereLight(0xfff8ee,0x6b6257,0.75));
+const sun=new THREE.DirectionalLight(0xfff3e2,0.55);sun.position.set(6,14,9);sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);
+Object.assign(sun.shadow.camera,{left:-10,right:10,top:10,bottom:-10,near:1,far:40});scene.add(sun);
+
+const RX=7,RZ=5,WH=3.2,TH=0.22;
+const wallMat=new THREE.MeshStandardMaterial({color:0xf2ede2,roughness:.95});
+const edgeMat=new THREE.LineBasicMaterial({color:0x8d867a,transparent:true,opacity:.55});
+function box(w,h,d,mat,x,y,z,shadow=true){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);m.position.set(x,y,z);m.castShadow=shadow;m.receiveShadow=true;scene.add(m);
+  const e=new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry),edgeMat);m.add(e);return m}
+// floor: pale concrete
+const fc=document.createElement('canvas');fc.width=fc.height=512;{const g=fc.getContext('2d');g.fillStyle='#d9d3c7';g.fillRect(0,0,512,512);const r=rnd(5);
+  for(let i=0;i<9000;i++){g.fillStyle=`rgba(${r()<.5?60:255},${r()<.5?55:250},50,${r()*.06})`;g.fillRect(r()*512,r()*512,2,2)}
+  g.strokeStyle='rgba(120,110,95,.25)';g.lineWidth=1.2;for(let i=0;i<=512;i+=128){g.beginPath();g.moveTo(i,0);g.lineTo(i,512);g.stroke();g.beginPath();g.moveTo(0,i);g.lineTo(512,i);g.stroke()}}
+const ft=new THREE.CanvasTexture(fc);ft.wrapS=ft.wrapT=THREE.RepeatWrapping;ft.repeat.set(RX/2,RZ/2);ft.encoding=THREE.sRGBEncoding;
+const floor=new THREE.Mesh(new THREE.PlaneGeometry(RX*2,RZ*2),new THREE.MeshStandardMaterial({map:ft,roughness:1}));
+floor.rotation.x=-Math.PI/2;floor.receiveShadow=true;scene.add(floor);
+// plinth under floor edge
+box(RX*2+0.4,0.4,RZ*2+0.4,new THREE.MeshStandardMaterial({color:0x2a2723}),0,-0.215,0,false);
+// walls: back (z-), left (x-), partition; front & right are cut low so the room reads like a model
+// four outer walls; the ones between the camera and the room drop to a low curb as the room turns
+const outer=[['a',box(RX*2+TH*2,WH,TH,wallMat,0,WH/2,-RZ-TH/2),new THREE.Vector3(0,0,-1)],['l',box(TH,WH,RZ*2,wallMat,-RX-TH/2,WH/2,0),new THREE.Vector3(-1,0,0)],
+  ['s',box(RX*2+TH*2,WH,TH,wallMat,0,WH/2,RZ+TH/2),new THREE.Vector3(0,0,1)],['r',box(TH,WH,RZ*2,wallMat,RX+TH/2,WH/2,0),new THREE.Vector3(1,0,0)]].map(([k,m,out])=>({k,m,out,h:WH}));
+const PZ=1.4,PX0=-0.6,PX1=4.6;box(PX1-PX0,WH*0.82,TH,wallMat,(PX0+PX1)/2,WH*0.41,PZ);
+// floor title on the front curb
+function textTex(lines,w,h,opt={}){const c=document.createElement('canvas');c.width=w;c.height=h;const g=c.getContext('2d');if(opt.bg){g.fillStyle=opt.bg;g.fillRect(0,0,w,h)}
+  lines.forEach(([txt,font,col,y,align='left',x=0])=>{g.font=font;g.fillStyle=col;g.textAlign=align;g.fillText(txt,x,y)});const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;t.anisotropy=4;return t}
+
+// wall wash light (fake spotlights)
+const washTex=(()=>{const c=document.createElement('canvas');c.width=c.height=256;const g=c.getContext('2d');const L=g.createRadialGradient(128,70,10,128,120,130);
+  L.addColorStop(0,'rgba(255,240,215,.55)');L.addColorStop(1,'rgba(255,240,215,0)');g.fillStyle=L;g.fillRect(0,0,256,256);return new THREE.CanvasTexture(c)})();
+
+// ---------- artworks ----------
+const clickables=[];const works=[];
+function placeWork(wk,i){
+  let pos,normal,rotY;
+  if(wk.wall==='a'){pos=new THREE.Vector3(wk.x,1.62,-RZ+0.03);normal=new THREE.Vector3(0,0,1);rotY=0}
+  if(wk.wall==='l'){pos=new THREE.Vector3(-RX+0.03,1.62,wk.z);normal=new THREE.Vector3(1,0,0);rotY=Math.PI/2}
+  if(wk.wall==='p'){pos=new THREE.Vector3(wk.x,1.5,PZ+TH/2+0.03);normal=new THREE.Vector3(0,0,1);rotY=0}
+  const grp=new THREE.Group();grp.position.copy(pos);grp.rotation.y=rotY;scene.add(grp);
+  const px=Math.round(wk.w*560),py=Math.round(wk.h*560);const cv=photo(wk.scene,px,py,wk.id);wk.thumb=cv.toDataURL('image/jpeg',.7);
+  const tex=new THREE.CanvasTexture(cv);tex.encoding=THREE.sRGBEncoding;tex.anisotropy=8;
+  const frame=new THREE.Mesh(new THREE.BoxGeometry(wk.w+0.1,wk.h+0.1,0.05),new THREE.MeshStandardMaterial({color:0x1c1a17,roughness:.6}));frame.position.z=0.025;frame.castShadow=true;grp.add(frame);
+  const mat=new THREE.Mesh(new THREE.PlaneGeometry(wk.w+0.04,wk.h+0.04),new THREE.MeshStandardMaterial({color:0xf7f5ef,roughness:.9}));mat.position.z=0.052;grp.add(mat);
+  const pic=new THREE.Mesh(new THREE.PlaneGeometry(wk.w*0.86,wk.h*0.86),new THREE.MeshStandardMaterial({map:tex,roughness:.75}));pic.position.z=0.054;grp.add(pic);
+  const wash=new THREE.Mesh(new THREE.PlaneGeometry(wk.w*2.4,2.6),new THREE.MeshBasicMaterial({map:washTex,transparent:true,depthWrite:false}));wash.position.set(0,0.4,0.01);grp.add(wash);
+  // caption plate
+  const plate=new THREE.Mesh(new THREE.PlaneGeometry(0.34,0.16),new THREE.MeshBasicMaterial({map:textTex([[String(wk.id).padStart(2,'0'),'500 64px "Cormorant Garamond",serif','#b8442b',86,'center',128]],256,120,{bg:'#f7f5ef'})}));
+  plate.position.set(wk.w/2+0.32,-wk.h/2+0.08,0.02);grp.add(plate);
+  // hover outline
+  const hl=new THREE.Mesh(new THREE.PlaneGeometry(wk.w+0.26,wk.h+0.26),new THREE.MeshBasicMaterial({color:0xb8442b,transparent:true,opacity:0}));hl.position.z=0.005;grp.add(hl);
+  [frame,mat,pic].forEach(m=>{m.userData.ref=wk;clickables.push(m)});
+  grp.updateMatrixWorld(true);const center=new THREE.Vector3();grp.localToWorld(center.set(0,0,0.05));
+  const spot=pos.clone().add(normal.clone().multiplyScalar(1.9));spot.y=0;
+  Object.assign(wk,{grp,normal,center,spot,hl,kind:'work'});works.push(wk);
+}
+W.forEach(placeWork);
+// book on a plinth
+(()=>{const px=-3.6,pz=2.7;const pl=box(0.9,0.95,0.9,new THREE.MeshStandardMaterial({color:0xe6dfd1,roughness:.9}),px,0.475,pz);
+  const cv=bookCover();const t=new THREE.CanvasTexture(cv);t.encoding=THREE.sRGBEncoding;
+  const side=new THREE.MeshStandardMaterial({color:0xf2efe8});const mats=[side,side,new THREE.MeshStandardMaterial({map:t}),side,side,side];
+  const bk=new THREE.Mesh(new THREE.BoxGeometry(0.46,0.04,0.64),mats);bk.position.set(px,0.97,pz);bk.rotation.y=-0.35;bk.castShadow=true;scene.add(bk);
+  const hl=new THREE.Mesh(new THREE.PlaneGeometry(0.62,0.8),new THREE.MeshBasicMaterial({color:0xb8442b,transparent:true,opacity:0}));hl.rotation.x=-Math.PI/2;hl.rotation.z=-0.35;hl.position.set(px,0.955,pz);scene.add(hl);
+  Object.assign(BOOK,{kind:'book',thumb:cv.toDataURL('image/jpeg',.7),center:new THREE.Vector3(px,0.98,pz),normal:new THREE.Vector3(0,1,0),spot:new THREE.Vector3(px+0.95,0,pz+0.95),hl,w:.7,h:.9,plinth:{x:px,z:pz}});
+  [pl,bk].forEach(m=>{m.userData.ref=BOOK;clickables.push(m)});works.push(BOOK)})();
+// entrance sign on the floor
+(()=>{const m=new THREE.Mesh(new THREE.PlaneGeometry(3.6,0.9),new THREE.MeshBasicMaterial({transparent:true,map:textTex([
+  ['北ゆき','600 92px "Shippori Mincho",serif','#1c1a17',104,'left',8],['MinMin  PHOTOGRAPHS  ·  SAIKYOSHA','500 34px "Cormorant Garamond",serif','#8d867a',168,'left',12]],1024,200)}));
+  m.rotation.x=-Math.PI/2;m.position.set(3.4,0.005,3.6);scene.add(m)})();
+
+// ---------- visitor ----------
+const visitor=new THREE.Group();
+const vMat=new THREE.MeshStandardMaterial({color:0xb8442b,roughness:.7});
+const body=new THREE.Mesh(new THREE.CylinderGeometry(0.17,0.24,1.1,18),vMat);body.position.y=0.62;body.castShadow=true;
+const head=new THREE.Mesh(new THREE.SphereGeometry(0.17,20,14),new THREE.MeshStandardMaterial({color:0xf2ede2,roughness:.8}));head.position.y=1.38;head.castShadow=true;
+const nose=new THREE.Mesh(new THREE.BoxGeometry(0.08,0.05,0.12),new THREE.MeshStandardMaterial({color:0x1c1a17}));nose.position.set(0,1.38,0.17);
+const ring=new THREE.Mesh(new THREE.RingGeometry(0.32,0.38,32),new THREE.MeshBasicMaterial({color:0xb8442b,transparent:true,opacity:.6}));ring.rotation.x=-Math.PI/2;ring.position.y=0.01;
+visitor.add(body,head,nose,ring);visitor.position.set(5.6,0,3.9);scene.add(visitor);
+const marker=new THREE.Mesh(new THREE.RingGeometry(0.12,0.2,24),new THREE.MeshBasicMaterial({color:0x1c1a17,transparent:true,opacity:0}));marker.rotation.x=-Math.PI/2;marker.position.y=0.012;scene.add(marker);
+
+// ---------- walkable grid + A* ----------
+const CELL=0.25,GX=Math.round(RX*2/CELL),GZ=Math.round(RZ*2/CELL);const blocked=new Uint8Array(GX*GZ);
+const toCell=(x,z)=>[Math.floor((x+RX)/CELL),Math.floor((z+RZ)/CELL)],toWorld=(i,j)=>[-RX+(i+.5)*CELL,-RZ+(j+.5)*CELL];
+for(let i=0;i<GX;i++)for(let j=0;j<GZ;j++){const[x,z]=toWorld(i,j);let b=x<-RX+0.45||x>RX-0.4||z<-RZ+0.45||z>RZ-0.4;
+  if(x>PX0-0.4&&x<PX1+0.4&&Math.abs(z-PZ)<0.45)b=true;if(Math.abs(x-BOOK.plinth.x)<0.8&&Math.abs(z-BOOK.plinth.z)<0.8)b=true;blocked[i+j*GX]=b?1:0}
+function nearestFree(i,j){if(!blocked[i+j*GX])return[i,j];for(let r=1;r<20;r++)for(let di=-r;di<=r;di++)for(let dj=-r;dj<=r;dj++){const a=i+di,b=j+dj;if(a>=0&&b>=0&&a<GX&&b<GZ&&!blocked[a+b*GX])return[a,b]}return[i,j]}
+function astar(from,to){let[si,sj]=nearestFree(...toCell(from.x,from.z)),[ti,tj]=nearestFree(...toCell(to.x,to.z));
+  const N=GX*GZ,g=new Float32Array(N).fill(1e9),came=new Int32Array(N).fill(-1),open=[si+sj*GX];g[si+sj*GX]=0;const h=(k)=>Math.hypot(k%GX-ti,((k/GX)|0)-tj);const inOpen=new Uint8Array(N);inOpen[open[0]]=1;
+  while(open.length){let bi=0;for(let k=1;k<open.length;k++)if(g[open[k]]+h(open[k])<g[open[bi]]+h(open[bi]))bi=k;const cur=open.splice(bi,1)[0];inOpen[cur]=0;
+    if(cur===ti+tj*GX)break;const ci=cur%GX,cj=(cur/GX)|0;
+    for(let di=-1;di<=1;di++)for(let dj=-1;dj<=1;dj++){if(!di&&!dj)continue;const a=ci+di,b=cj+dj;if(a<0||b<0||a>=GX||b>=GZ)continue;const n=a+b*GX;if(blocked[n])continue;
+      if(di&&dj&&(blocked[ci+di+cj*GX]||blocked[ci+(cj+dj)*GX]))continue;const ng=g[cur]+(di&&dj?1.414:1);if(ng<g[n]){g[n]=ng;came[n]=cur;if(!inOpen[n]){open.push(n);inOpen[n]=1}}}}
+  const path=[];let k=ti+tj*GX;if(came[k]<0&&k!==si+sj*GX)return[to.clone()];while(k>=0&&k!==si+sj*GX){const[x,z]=toWorld(k%GX,(k/GX)|0);path.unshift(new THREE.Vector3(x,0,z));k=came[k]}
+  // string-pull: drop points with clear line of sight
+  const clear=(a,b)=>{const n=Math.ceil(a.distanceTo(b)/(CELL*.5));for(let s=1;s<n;s++){const p=a.clone().lerp(b,s/n);const[i,j]=toCell(p.x,p.z);if(blocked[i+j*GX])return false}return true};
+  const out=[];let a=from.clone();for(let s=0;s<path.length;s++){if(s===path.length-1||!clear(a,path[s+1])){out.push(path[s]);a=path[s]}}
+  const last=to.clone();const[li,lj]=toCell(last.x,last.z);if(!blocked[li+lj*GX])out[out.length-1]=last;return out}
+
+// ---------- state ----------
+let mode='walk',focused=null,route=[],pending=null,hovered=null,lastArrive=null;
+const keys={};
+function setHint(){$('#hint').textContent=T[lang][mode==='walk'?'hintWalk':'hintClick']}
+function applyLang(){document.documentElement.lang=lang==='zh'?'zh-Hans':lang;
+  document.querySelectorAll('[data-t]').forEach(e=>e.textContent=T[lang][e.dataset.t]);document.querySelectorAll('[data-tt]').forEach(e=>{e.title=T[lang][e.dataset.tt];e.setAttribute('aria-label',T[lang][e.dataset.tt])});
+  document.querySelectorAll('[data-lang]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.lang===lang));
+  setHint();buildStrip();if(focused)fillSheet(focused)}
+function buildStrip(){const s=$('#strip');s.innerHTML='';works.forEach(wk=>{const b=document.createElement('button');b.className='chip';b.id='chip-'+wk.id;
+  b.innerHTML=`<div class="th" style="background-image:url(${wk.thumb})"></div><span><b>${wk.kind==='book'?'BOOK':String(wk.id).padStart(2,'0')}</b>${wk.t[lang]}</span>`;
+  b.onclick=()=>select(wk);s.appendChild(b)})}
+const yen=n=>'¥'+n.toLocaleString('ja-JP');
+function fillSheet(wk){const L=T[lang];
+  $('#sNo').textContent=wk.kind==='book'?'PUBLICATION':'No. '+String(wk.id).padStart(2,'0');$('#sTitle').textContent=wk.t[lang];$('#sArtist').textContent=L.artist;
+  const st=$('#sState');if(wk.kind==='book'){st.textContent=L.book;st.className='pill'}else{st.textContent=L[wk.state];st.className='pill'+(wk.state==='sold'?' sold':'')}
+  const rows=wk.kind==='book'?[[L.medium,wk.m[lang]],[L.year,wk.year]]:[[L.size,`${Math.round(wk.w*1000)} × ${Math.round(wk.h*1000)} mm`],[L.medium,wk.m[lang]],[L.year,wk.year],[L.edition,wk.ed]];
+  $('#sMeta').innerHTML=rows.map(([a,b])=>`<dt>${a}</dt><dd>${b}</dd>`).join('');$('#sText').textContent=wk.d[lang];
+  const buy=$('#sBuy');if(wk.kind==='book'){$('#sPrice').innerHTML='';buy.hidden=false;buy.textContent=L.buyBook}
+  else{$('#sPrice').innerHTML=wk.state==='sold'?'':`${yen(wk.price)}<small>${L.taxin}</small>`;buy.hidden=wk.state==='sold';buy.textContent=L.buy}
+  $('#sBack').textContent=L.back;
+  document.querySelectorAll('.chip').forEach(c=>c.classList.toggle('on',c.id==='chip-'+wk.id))}
+
+// ---------- camera tween ----------
+let tw=null;const camGoal={pos:new THREE.Vector3(),tgt:new THREE.Vector3(),zoom:1};
+const ease=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
+function tweenTo(pos,tgt,zoom,ms=950){tw={t0:performance.now(),ms,p0:camera.position.clone(),t0v:target.clone(),z0:camera.zoom,p1:pos.clone(),t1:tgt.clone(),z1:zoom}}
+let overviewZoom=1;
+function sheetOffset(){const w=innerWidth,h=innerHeight;if(!focused)return[0,0];if(w>720)return[Math.min(380,w)/2,0];return[0,h*0.25]}
+function updateOffset(){const[ox,oy]=sheetOffset();const k=tw?ease(Math.min(1,(performance.now()-tw.t0)/tw.ms)):1;
+  const cur=camera.view&&camera.view.enabled?[camera.view.offsetX,camera.view.offsetY]:[0,0];const nx=cur[0]+(ox-cur[0])*0.22,ny=cur[1]+(oy-cur[1])*0.22;
+  if(Math.abs(nx)<0.5&&Math.abs(ny)<0.5&&!ox&&!oy){camera.clearViewOffset()}else camera.setViewOffset(innerWidth,innerHeight,nx,ny,innerWidth,innerHeight)}
+function focus(wk){focused=wk;fillSheet(wk);document.body.classList.add('focus');
+  const n=wk.normal,dist=wk.kind==='book'?30:1.25;let pos,zoomFit;const vw=VIEW*aspect,vh=VIEW;
+  const availW=innerWidth>720?(innerWidth-380)/innerWidth:1,availH=innerWidth>720?1:0.5;
+  if(wk.kind==='book'){pos=wk.center.clone().add(new THREE.Vector3(0.5,1,0.5).normalize().multiplyScalar(dist));zoomFit=Math.min(vh*availH/(1.6),vw*availW/(1.8))}
+  else{pos=wk.center.clone().add(n.clone().multiplyScalar(dist)).add(new THREE.Vector3(0,0.0,0));zoomFit=Math.min(vh*availH/(wk.h*1.55),vw*availW/(wk.w*1.45))}
+  tweenTo(pos,wk.center,zoomFit)}
+function unfocus(){if(!focused)return;focused=null;document.body.classList.remove('focus');document.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));
+  const tgt=mode==='walk'?new THREE.Vector3(visitor.position.x,0.8,visitor.position.z):target.clone().setY(0.8);
+  if(mode==='click')tgt.set(0,0.8,0);tweenTo(tgt.clone().add(ISO),tgt,overviewZoom)}
+function faceable(wk){if(wk.kind==='book')return;const step=Math.PI/4,cd=new THREE.Vector3(Math.cos(azimGoal),0,Math.sin(azimGoal));if(wk.normal.dot(cd)>0.3)return;
+  let best=azimGoal,bd=1e9;const base=Math.round(azimGoal/step)*step;for(let k=-8;k<=8;k++){const a=base+k*step;const d=new THREE.Vector3(Math.cos(a),0,Math.sin(a));if(wk.normal.dot(d)>0.6&&Math.abs(a-azimGoal)<bd){bd=Math.abs(a-azimGoal);best=a}}azimGoal=best}
+function rotate(dir){if(focused)return;azimGoal+=dir*Math.PI/4}
+function select(wk){faceable(wk);if(mode==='click'||!wk.spot){focus(wk);return}
+  if(focused)unfocus();route=astar(visitor.position,wk.spot);pending=wk;showMarker(wk.spot)}
+function walkTo(p){if(focused)unfocus();pending=null;route=astar(visitor.position,p);showMarker(route[route.length-1]||p)}
+function showMarker(p){marker.position.set(p.x,0.012,p.z);marker.material.opacity=.7}
+
+// ---------- input ----------
+const ray=new THREE.Raycaster(),ndc=new THREE.Vector2();
+function pick(e){const r=renderer.domElement.getBoundingClientRect();ndc.set(((e.clientX-r.left)/r.width)*2-1,-((e.clientY-r.top)/r.height)*2+1);ray.setFromCamera(ndc,camera);
+  const vis=o=>{while(o){if(!o.visible)return false;o=o.parent}return true};const hit=ray.intersectObjects(clickables,false).find(h=>vis(h.object));if(hit)return{ref:hit.object.userData.ref};const f=ray.intersectObject(floor)[0];return f?{floor:f.point}:null}
+const ptrs=new Map();let drag=null,pinch0=null;
+stage.addEventListener('pointerdown',e=>{stage.setPointerCapture(e.pointerId);ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(ptrs.size===1)drag={x:e.clientX,y:e.clientY,moved:false,tgt:target.clone()};
+  if(ptrs.size===2){const[a,b]=[...ptrs.values()];pinch0={d:Math.hypot(a.x-b.x,a.y-b.y),z:camera.zoom};drag=null}});
+stage.addEventListener('pointermove',e=>{if(ptrs.has(e.pointerId))ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(pinch0&&ptrs.size===2&&!focused){const[a,b]=[...ptrs.values()];overviewZoom=THREE.MathUtils.clamp(pinch0.z*Math.hypot(a.x-b.x,a.y-b.y)/pinch0.d,0.6,2.4);camera.zoom=overviewZoom;camera.updateProjectionMatrix();return}
+  if(drag){const dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(Math.hypot(dx,dy)>6)drag.moved=true;
+    if(drag.moved&&!focused&&mode==='click'){stage.classList.add('dragging');const s=VIEW/innerHeight/camera.zoom;const fwd=new THREE.Vector3(-Math.cos(azim),0,-Math.sin(azim)),right=new THREE.Vector3(Math.sin(azim),0,-Math.cos(azim));
+      const nt=drag.tgt.clone().add(right.multiplyScalar(-dx*s)).add(fwd.multiplyScalar(dy*s*1.35));nt.x=THREE.MathUtils.clamp(nt.x,-RX,RX);nt.z=THREE.MathUtils.clamp(nt.z,-RZ,RZ);target.copy(nt);camera.position.copy(target).add(ISO)}
+    return}
+  const p=pick(e);const ref=p&&p.ref;if(ref!==hovered){if(hovered)hovered.hl.material.opacity=0;hovered=ref||null;if(hovered&&!focused)hovered.hl.material.opacity=.85}
+  stage.classList.toggle('pointing',!!ref||(mode==='walk'&&!!(p&&p.floor)))});
+const end=e=>{ptrs.delete(e.pointerId);stage.classList.remove('dragging');if(ptrs.size<2)pinch0=null;
+  if(drag&&!drag.moved&&e.type==='pointerup'){const p=pick(e);
+    if(p&&p.ref){if(focused===p.ref)return;select(p.ref)}
+    else if(focused)unfocus();
+    else if(p&&p.floor&&mode==='walk')walkTo(p.floor)}
+  drag=null};
+stage.addEventListener('pointerup',end);stage.addEventListener('pointercancel',end);
+stage.addEventListener('wheel',e=>{e.preventDefault();if(focused)return;overviewZoom=THREE.MathUtils.clamp(camera.zoom*Math.exp(-e.deltaY*0.0012),0.6,2.4);camera.zoom=overviewZoom;camera.updateProjectionMatrix()},{passive:false});
+addEventListener('keydown',e=>{if(e.key==='Escape')unfocus();if(e.key==='q'||e.key==='Q')rotate(1);if(e.key==='e'||e.key==='E')rotate(-1);keys[e.key.toLowerCase()]=true});addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false});
+$('#sBack').onclick=unfocus;$('#rotL').onclick=()=>rotate(1);$('#rotR').onclick=()=>rotate(-1);
+$('#mWalk').onclick=()=>setMode('walk');$('#mClick').onclick=()=>setMode('click');
+document.querySelectorAll('[data-lang]').forEach(b=>b.onclick=()=>{lang=b.dataset.lang;try{localStorage.setItem('sg-lang',lang)}catch(e){}applyLang()});
+function setMode(m){mode=m;$('#mWalk').setAttribute('aria-pressed',m==='walk');$('#mClick').setAttribute('aria-pressed',m==='click');visitor.visible=m==='walk';marker.material.opacity=0;route=[];pending=null;setHint();
+  if(!focused){const tgt=m==='walk'?new THREE.Vector3(visitor.position.x,.8,visitor.position.z):new THREE.Vector3(0,.8,0);tweenTo(tgt.clone().add(ISO),tgt,m==='walk'?overviewZoom:Math.min(overviewZoom,1))}}
+
+// ---------- loop ----------
+function resize(){const w=innerWidth,h=innerHeight;aspect=w/h;const vh=VIEW*(w<720?1.25:1);camera.left=-vh*aspect/2;camera.right=vh*aspect/2;camera.top=vh/2;camera.bottom=-vh/2;
+  camera.updateProjectionMatrix();renderer.setSize(w,h)}
+addEventListener('resize',resize);resize();
+const clock=new THREE.Clock();let bob=0;
+function tick(){const dt=Math.min(clock.getDelta(),0.05);
+  if(!focused&&Math.abs(azimGoal-azim)>1e-4){azim+=(azimGoal-azim)*Math.min(1,dt*5);if(Math.abs(azimGoal-azim)<1e-3)azim=azimGoal;setISO()}
+  // keyboard walking (screen-relative)
+  if(mode==='walk'&&!focused){const f=new THREE.Vector3(-Math.cos(azim),0,-Math.sin(azim)),r=new THREE.Vector3(Math.sin(azim),0,-Math.cos(azim));const v=new THREE.Vector3();
+    if(keys.w||keys.arrowup)v.add(f);if(keys.s||keys.arrowdown)v.sub(f);if(keys.d||keys.arrowright)v.add(r);if(keys.a||keys.arrowleft)v.sub(r);
+    if(v.lengthSq()){route=[];pending=null;marker.material.opacity=0;v.normalize().multiplyScalar(2.4*dt);const np=visitor.position.clone().add(v);const[i,j]=toCell(np.x,np.z);
+      if(i>=0&&j>=0&&i<GX&&j<GZ&&!blocked[i+j*GX])visitor.position.copy(np);visitor.rotation.y=Math.atan2(v.x,v.z);bob+=dt*10}}
+  if(route.length&&mode==='walk'){const p=route[0];const d=p.clone().sub(visitor.position);d.y=0;const L=d.length();const step=3.2*dt;
+    if(L<=step){visitor.position.set(p.x,0,p.z);route.shift();if(!route.length){marker.material.opacity=0;if(pending){const wk=pending;pending=null;visitor.rotation.y=Math.atan2(-wk.normal.x||(wk.center.x-visitor.position.x),-wk.normal.z||(wk.center.z-visitor.position.z));focus(wk)}}}
+    else{d.multiplyScalar(step/L);visitor.position.add(d);visitor.rotation.y=Math.atan2(d.x,d.z);bob+=dt*10}}
+  // auto-focus by proximity (keyboard walking)
+  if(mode==='walk'&&!focused&&!route.length){let near=null;for(const wk of works){if(wk.spot.distanceTo(new THREE.Vector3(visitor.position.x,0,visitor.position.z))<0.55)near=wk}
+    if(near&&near!==lastArrive){lastArrive=near;focus(near)}if(!near)lastArrive=null}
+  body.position.y=0.62+Math.abs(Math.sin(bob))*0.04;head.position.y=1.38+Math.abs(Math.sin(bob))*0.04;nose.position.y=head.position.y;ring.material.opacity=.45+Math.sin(performance.now()/400)*.15;
+  if(marker.material.opacity>0)marker.scale.setScalar(1+Math.sin(performance.now()/180)*.08);
+  // camera
+  if(tw){const k=ease(Math.min(1,(performance.now()-tw.t0)/tw.ms));
+    // arc the offset direction so the move reads as one sweep
+    const o0=tw.p0.clone().sub(tw.t0v),o1=tw.p1.clone().sub(tw.t1);const len=THREE.MathUtils.lerp(o0.length(),o1.length(),k);const dir=o0.normalize().lerp(o1.normalize(),k).normalize();
+    target.lerpVectors(tw.t0v,tw.t1,k);camera.position.copy(target).add(dir.multiplyScalar(len));camera.zoom=THREE.MathUtils.lerp(tw.z0,tw.z1,k);camera.updateProjectionMatrix();if(k>=1)tw=null}
+  else if(!focused&&mode==='walk'){const goal=new THREE.Vector3(visitor.position.x,0.8,visitor.position.z);target.lerp(goal,0.06);camera.position.copy(target).add(ISO)}
+  else if(!focused){camera.position.copy(target).add(ISO)}
+  {const cd=camera.position.clone().sub(target);cd.y=0;cd.normalize();
+   for(const w of outer){const goal=w.out.dot(cd)>0.15?0.32:WH;w.h+=(goal-w.h)*Math.min(1,dt*7);w.m.scale.y=w.h/WH;w.m.position.y=w.h/2}
+   for(const wk of works){if(!wk.grp)continue;const w=outer.find(o=>o.k===wk.wall);if(w)wk.grp.visible=w.h>WH*0.8}}
+  camera.lookAt(target);updateOffset();
+  renderer.render(scene,camera);requestAnimationFrame(tick)}
+try{const s=localStorage.getItem('sg-lang');if(s&&T[s])lang=s}catch(e){}try{const q=new URLSearchParams(location.search).get('lang');if(q&&T[q])lang=q}catch(e){}
+applyLang();
+(document.fonts&&document.fonts.ready?document.fonts.ready:Promise.resolve()).then(()=>{});
+requestAnimationFrame(tick);
+setTimeout(()=>{const l=$('#loader');l.style.opacity=0;setTimeout(()=>l.remove(),700)},350);
+})();
+</script>
+
+</body>
+</html>
