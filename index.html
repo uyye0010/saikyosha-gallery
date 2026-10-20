@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>西京社 オンライン展覧会</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@600&family=Zen+Kaku+Gothic+New:wght@400;500&family=Cormorant+Garamond:wght@500&display=swap">
+<style>
+:root{--sumi:#1c1a17;--kinari:#f2ede2;--suna:#e6dfd1;--nibi:#8d867a;--kiiro:#e8c547;color-scheme:dark}
+*{box-sizing:border-box}body{margin:0;background:var(--sumi);color:var(--kinari);font-family:"Zen Kaku Gothic New","Hiragino Sans",sans-serif;
+padding:56px max(20px,env(safe-area-inset-right,0px)) 56px max(20px,env(safe-area-inset-left,0px))}
+main{max-width:880px;margin:0 auto;display:flex;flex-direction:column;gap:28px}
+.k{font-family:"Cormorant Garamond",serif;letter-spacing:.24em;font-size:13px;color:var(--nibi)}
+h1{margin:0;font-family:"Shippori Mincho",serif;font-size:clamp(26px,4vw,38px);letter-spacing:.06em}
+p{margin:0;line-height:1.9;color:var(--suna);font-size:14px}
+.list{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
+a.card{display:flex;flex-direction:column;gap:8px;padding:22px;border:1px solid rgba(242,237,226,.2);color:inherit;text-decoration:none}
+a.card:hover{border-color:var(--kiiro)}a.card b{font-family:"Shippori Mincho",serif;font-size:20px;letter-spacing:.05em}
+a.card span{font-size:12.5px;color:var(--nibi);letter-spacing:.06em}
+</style>
+</head>
+<body>
+<main>
+<div class="k">SAIKYOSHA · ONLINE EXHIBITIONS</div>
+<h1>西京社 オンライン展覧会</h1>
+<p>本と展覧会をつなぐ、西京社の3D展示室です。作品の前まで歩いて、拡大して見ることができます。</p>
+<div class="list">
+<a class="card" href="bv01/"><span>BETWEEN VENUES · ISSUE 01</span><b>創刊号が置かれる場所</b><span>病院・介護施設・オフィス・図書室・カフェ（試作）</span></a>
+<a class="card" href="kita-yuki/"><span>DEMO</span><b>写真展「北ゆき」</b><span>展示室の試作（作品画像は仮）</span></a>
+</div>
+</main>
+</body>
+</html>
