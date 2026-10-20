@@ -1,0 +1,535 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>BETWEEN VENUES Rooms</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;600&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Cormorant+Garamond:ital,wght@0,500;1,500&display=swap">
+<style>
+/* Layout: one full-screen 45° room that changes between everyday places; space switcher under the title, a use-case card on the left, item sheet on the right (bottom sheet on phones). */
+:root{
+  --sumi:#1c1a17; --sumi-2:#2a2723; --kinari:#f2ede2; --suna:#e6dfd1; --shu:#b8442b; --tetsu:#23504a; --nibi:#8d867a; --kiiro:#e8c547;
+  --f-display:"Shippori Mincho","Hiragino Mincho ProN","Yu Mincho",serif;
+  --f-body:"Zen Kaku Gothic New","Hiragino Sans","Noto Sans JP",system-ui,sans-serif;
+  --f-latin:"Cormorant Garamond","Times New Roman",serif;
+  color-scheme:dark;
+}
+html,body{height:100%}
+*,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none!important}
+[hidden]{display:none!important}
+body{margin:0;background:var(--sumi);color:var(--kinari);font-family:var(--f-body);overflow:hidden;-webkit-tap-highlight-color:transparent}
+#stage{position:fixed;inset:0;touch-action:none;cursor:grab}
+#stage.pointing{cursor:pointer}#stage.dragging{cursor:grabbing}
+canvas{display:block}
+.hud{position:fixed;z-index:5;pointer-events:none}.hud>*{pointer-events:auto}
+#top{top:0;left:0;right:0;display:flex;flex-direction:column;gap:10px;
+  padding-top:calc(14px + env(safe-area-inset-top,0px));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-bottom:26px;
+  background:linear-gradient(var(--sumi) 0%,var(--sumi) 55%,rgba(28,26,23,0) 100%);transition:opacity .4s}
+.row1{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.brand{display:flex;flex-direction:column;gap:4px;min-width:0}
+.eyebrow{font-family:var(--f-latin);font-size:12px;letter-spacing:.24em;text-transform:uppercase;color:var(--nibi)}
+.ttl{font-family:var(--f-display);font-size:clamp(18px,2.2vw,25px);font-weight:600;letter-spacing:.05em;line-height:1.35;text-wrap:balance}
+.ttl small{display:inline-block;margin-left:.6em;font-family:var(--f-body);font-size:12px;font-weight:400;letter-spacing:.06em;color:var(--suna);opacity:.75}
+.ctrls{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;flex:none}
+.seg{display:flex;border:1px solid rgba(242,237,226,.28);background:rgba(28,26,23,.72)}
+.seg button{all:unset;cursor:pointer;font-size:12.5px;letter-spacing:.06em;padding:8px 12px;color:var(--suna);white-space:nowrap}
+.seg button[aria-pressed="true"]{background:var(--kinari);color:var(--sumi)}
+button:focus-visible,a:focus-visible{outline:2px solid var(--shu);outline-offset:2px}
+#spaces{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+#spaces::-webkit-scrollbar{display:none}
+#spaces button{all:unset;cursor:pointer;flex:none;display:flex;align-items:baseline;gap:7px;padding:7px 13px;border:1px solid rgba(242,237,226,.22);background:rgba(28,26,23,.6);font-size:13px;letter-spacing:.06em;color:var(--suna);white-space:nowrap}
+#spaces button b{font-family:var(--f-latin);font-weight:500;font-size:12px;color:var(--nibi)}
+#spaces button[aria-pressed="true"]{border-color:var(--kiiro);color:var(--kinari)}
+#spaces button[aria-pressed="true"] b{color:var(--kiiro)}
+
+#card{position:fixed;z-index:4;left:max(16px,env(safe-area-inset-left,0px));top:calc(132px + env(safe-area-inset-top,0px));width:min(320px,calc(100vw - 32px));
+  background:rgba(28,26,23,.86);border:1px solid rgba(242,237,226,.16);padding:18px 18px 16px;box-sizing:border-box;display:flex;flex-direction:column;gap:10px;transition:opacity .4s,transform .4s}
+#card .k{font-family:var(--f-latin);font-size:12px;letter-spacing:.22em;color:var(--kiiro)}
+#card h3{margin:0;font-family:var(--f-display);font-weight:600;font-size:21px;letter-spacing:.05em}
+#card .lede{margin:0;font-size:13.5px;line-height:1.75;color:var(--suna)}
+#card .uh{font-size:11.5px;letter-spacing:.16em;color:var(--nibi);margin-top:4px}
+#card ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:7px}
+#card li{font-size:12.5px;line-height:1.7;color:var(--kinari);padding-left:14px;position:relative}
+#card li::before{content:"";position:absolute;left:0;top:.72em;width:6px;height:1px;background:var(--kiiro)}
+#card .cta{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+#card .cta a{font-size:12.5px;letter-spacing:.06em;color:var(--sumi);background:var(--kiiro);padding:9px 12px;text-decoration:none}
+#card .cta a.ghost{background:transparent;color:var(--kinari);border:1px solid rgba(242,237,226,.4)}
+#card .x{all:unset;cursor:pointer;position:absolute;right:10px;top:8px;font-size:18px;color:var(--nibi);padding:4px 6px}
+#cardOpen{position:fixed;z-index:4;left:max(16px,env(safe-area-inset-left,0px));top:calc(132px + env(safe-area-inset-top,0px));all:unset;cursor:pointer;
+  font-size:12.5px;letter-spacing:.08em;padding:8px 12px;background:rgba(28,26,23,.86);border:1px solid var(--kiiro);color:var(--kiiro)}
+#cardOpen{position:fixed;z-index:4;left:max(16px,env(safe-area-inset-left,0px));top:calc(132px + env(safe-area-inset-top,0px))}
+body.focus #card,body.focus #cardOpen{opacity:0;pointer-events:none}
+
+#hint{left:50%;transform:translateX(-50%);bottom:calc(112px + env(safe-area-inset-bottom,0px));font-size:12.5px;letter-spacing:.06em;color:var(--suna);
+  background:rgba(28,26,23,.72);border:1px solid rgba(242,237,226,.16);padding:7px 14px;white-space:nowrap;max-width:calc(100vw - 140px);overflow:hidden;text-overflow:ellipsis;transition:opacity .4s}
+#rot{right:max(16px,env(safe-area-inset-right,0px));bottom:calc(112px + env(safe-area-inset-bottom,0px));display:flex;gap:8px;transition:opacity .4s}
+#rot button{all:unset;cursor:pointer;width:44px;height:44px;display:grid;place-items:center;border:1px solid rgba(242,237,226,.3);background:rgba(28,26,23,.78);color:var(--kinari)}
+#rot button:hover{border-color:var(--kiiro)}
+#strip{left:0;right:0;bottom:0;padding-bottom:calc(14px + env(safe-area-inset-bottom,0px));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-top:24px;background:linear-gradient(rgba(28,26,23,0),var(--sumi) 60%);display:flex;gap:10px;overflow-x:auto;scrollbar-width:none;transition:transform .45s,opacity .45s}
+#strip::-webkit-scrollbar{display:none}
+.chip{all:unset;cursor:pointer;flex:none;display:flex;flex-direction:column;gap:6px;width:92px}
+.chip .th{height:62px;background:var(--sumi-2) center/cover no-repeat;border:1px solid rgba(242,237,226,.18);transition:border-color .2s,transform .2s}
+.chip:hover .th,.chip.on .th{border-color:var(--kiiro);transform:translateY(-2px)}
+.chip span{font-size:11px;letter-spacing:.04em;color:var(--suna);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chip b{font-family:var(--f-latin);font-weight:500;color:var(--nibi);margin-right:5px}
+body.focus #strip{transform:translateY(110%);opacity:0}
+body.focus #hint,body.focus #rot{opacity:0;pointer-events:none}
+
+#sheet{position:fixed;z-index:6;top:0;right:0;bottom:0;width:min(380px,100%);background:var(--kinari);color:var(--sumi);
+  transform:translateX(102%);transition:transform .55s cubic-bezier(.2,.7,.2,1);display:flex;flex-direction:column;
+  padding-top:calc(28px + env(safe-area-inset-top,0px));padding-bottom:calc(24px + env(safe-area-inset-bottom,0px));
+  padding-left:28px;padding-right:max(28px,env(safe-area-inset-right,0px));box-sizing:border-box;gap:16px;overflow-y:auto}
+body.focus #sheet{transform:none}
+#sheet .no{font-family:var(--f-latin);font-size:13px;letter-spacing:.22em;color:var(--shu)}
+#sheet h2{margin:0;font-family:var(--f-display);font-weight:600;font-size:24px;letter-spacing:.05em;line-height:1.4;text-wrap:balance}
+#sheet .artist{font-size:13px;letter-spacing:.08em;color:#5d574e}
+#sheet dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:9px 18px;font-size:13px;border-top:1px solid #d5ccbb;padding-top:16px}
+#sheet dt{color:#7a7368;letter-spacing:.06em}#sheet dd{margin:0;font-variant-numeric:tabular-nums}
+#sheet p{margin:0;font-size:13.5px;line-height:1.9;color:#3b3732}
+.pill{align-self:flex-start;font-size:11px;letter-spacing:.12em;padding:3px 9px;border:1px solid var(--tetsu);color:var(--tetsu)}
+.acts{display:flex;flex-direction:column;gap:10px;margin-top:auto}
+.btn{all:unset;box-sizing:border-box;cursor:pointer;text-align:center;padding:13px 16px;font-size:14px;letter-spacing:.08em}
+.btn.buy{background:var(--shu);color:var(--kinari)}.btn.buy:hover{background:#9f3923}
+.btn.buy[aria-disabled="true"]{background:#d9d1c2;color:#7a7368;cursor:default}
+.btn.sub{border:1px solid var(--tetsu);color:var(--tetsu)}
+.btn.back{border:1px solid var(--sumi);color:var(--sumi)}.btn.back:hover{background:var(--sumi);color:var(--kinari)}
+.note{font-size:11px;color:#8a8275;letter-spacing:.04em;line-height:1.7}
+#loader{position:fixed;inset:0;z-index:9;display:grid;place-items:center;background:var(--sumi);font-family:var(--f-latin);letter-spacing:.3em;color:var(--nibi);font-size:13px;transition:opacity .6s}
+@media (max-width:720px){
+  .row1{flex-direction:column;gap:8px}.ctrls{justify-content:flex-start}
+  .seg button{font-size:11.5px;padding:6px 9px}
+  .ttl small{display:block;margin:2px 0 0}
+  #card,#cardOpen{top:auto;bottom:calc(150px + env(safe-area-inset-bottom,0px))}
+  #card{max-height:52vh;overflow-y:auto}
+  #sheet{top:auto;left:0;width:100%;max-height:58%;transform:translateY(104%);padding-top:22px;gap:11px;
+    padding-left:max(20px,env(safe-area-inset-left,0px));padding-right:max(20px,env(safe-area-inset-right,0px))}
+  #sheet h2{font-size:20px}#sheet dl{gap:6px 14px;padding-top:12px}
+  .acts{margin-top:6px}.acts .btn{padding:11px 8px}
+  body.focus #top{opacity:0;pointer-events:none}
+  #hint{display:none}
+  #rot{bottom:calc(104px + env(safe-area-inset-bottom,0px))}
+}
+@media (prefers-reduced-motion:reduce){#sheet,#strip,#card{transition:none}}
+</style>
+</head>
+<body>
+
+
+<div id="stage" aria-label="3D room"></div>
+<div id="loader">BETWEEN VENUES · ISSUE 01</div>
+
+<div class="hud" id="top">
+  <div class="row1">
+    <div class="brand">
+      <div class="eyebrow">Saikyosha · Between Venues Issue 01 · Prototype</div>
+      <div class="ttl"><span data-t="title">BETWEEN VENUES 創刊号が置かれる場所</span><small data-t="sub">試作 ／ 作品画像と活用例はイメージです</small></div>
+    </div>
+    <div class="ctrls">
+      <div class="seg" role="group" aria-label="mode">
+        <button id="mWalk" aria-pressed="true" data-t="walk">歩いて見る</button>
+        <button id="mClick" aria-pressed="false" data-t="click">クリックで見る</button>
+      </div>
+      <div class="seg" role="group" aria-label="language">
+        <button data-lang="ja" aria-pressed="true">日本語</button>
+        <button data-lang="zh" aria-pressed="false">中文</button>
+        <button data-lang="en" aria-pressed="false">EN</button>
+      </div>
+    </div>
+  </div>
+  <div id="spaces" role="group" aria-label="spaces"></div>
+</div>
+
+<section id="card" aria-live="polite">
+  <button class="x" id="cardClose" aria-label="close">×</button>
+  <span class="k" id="cK"></span>
+  <h3 id="cName"></h3>
+  <p class="lede" id="cLede"></p>
+  <div class="uh" data-t="uses">活用例</div>
+  <ul id="cUses"></ul>
+  <div class="cta"><a id="cContact" target="_blank" rel="noopener" data-t="contact">導入・定期購読のご相談 ↗</a><a class="ghost" id="cAbout" target="_blank" rel="noopener" data-t="about">創刊号について ↗</a></div>
+</section>
+<button id="cardOpen" hidden data-t="openCard">この場所での活用例</button>
+
+<div class="hud" id="hint"></div>
+<div class="hud" id="rot">
+  <button id="rotL" data-tt="rotL"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4.5h4.5"/></svg></button>
+  <button id="rotR" data-tt="rotR"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M20 12a8 8 0 1 1-2.4-5.7"/><path d="M20 4v4.5h-4.5"/></svg></button>
+</div>
+<div class="hud" id="strip"></div>
+
+<aside id="sheet" aria-live="polite">
+  <span class="no" id="sNo"></span>
+  <h2 id="sTitle"></h2>
+  <div class="artist" id="sArtist"></div>
+  <span class="pill" id="sState"></span>
+  <dl id="sMeta"></dl>
+  <p id="sText"></p>
+  <div class="acts">
+    <a class="btn buy" id="sBuy" target="_blank" rel="noopener"></a>
+    <a class="btn sub" id="sSub" target="_blank" rel="noopener"></a>
+    <button class="btn back" id="sBack"></button>
+  </div>
+  <div class="note" id="sNote"></div>
+</aside>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(()=>{
+const SITE='https://www.saikyosha.jp';
+const T={
+ ja:{title:'BETWEEN VENUES 創刊号が置かれる場所',sub:'試作 ／ 作品画像と活用例はイメージです',walk:'歩いて見る',click:'クリックで見る',uses:'活用例',contact:'導入・定期購読のご相談 ↗',about:'創刊号について ↗',openCard:'この場所での活用例',
+  hintWalk:'床をクリック（タップ）で移動。作品や雑誌の前で拡大。右下のボタンで回転。',hintClick:'作品や雑誌をクリック（タップ）で拡大。ドラッグで移動、ホイール／ピンチで拡大縮小。',
+  rotL:'左に回す（Q）',rotR:'右に回す（E）',back:'部屋に戻る',size:'サイズ',medium:'技法',artist:'作家',inc:'創刊号収録作品（仮）',tba:'作品の販売は11月下旬公開予定',
+  workNote:'入選作家は2026年11月15日の締切後に決定します。ここに並ぶ作品はすべて仮の画像です。',
+  magTitle:'BETWEEN VENUES 創刊号「そばに / BESIDE」',magNo:'MAGAZINE',magState:'2026年11月下旬 刊行予定',pub:'発行',lang:'言語',artists:'収録',release:'刊行',
+  magPub:'西京社',magLang:'日本語・英語',magArt:'アーティスト 12名',magRel:'2026年11月下旬（予定）',magBuy:'導入・定期購読のご相談 ↗',magSub:'創刊号について ↗',magNote:'機関・法人向けの導入（複数冊・定期購読）はお問い合わせフォームからご相談ください。',
+  inThis:'この場所では：'},
+ zh:{title:'BETWEEN VENUES 创刊号被放置的地方',sub:'样品 ／ 作品图片与使用场景均为示意',walk:'走动观看',click:'点击观看',uses:'使用场景',contact:'机构订阅・引进咨询 ↗',about:'关于创刊号 ↗',openCard:'这个场所的使用场景',
+  hintWalk:'点击（轻触）地面移动，走到作品或杂志前自动放大。右下按钮旋转。',hintClick:'点击（轻触）作品或杂志放大。拖动平移，滚轮／双指缩放。',
+  rotL:'向左旋转（Q）',rotR:'向右旋转（E）',back:'返回房间',size:'尺寸',medium:'工艺',artist:'艺术家',inc:'创刊号收录作品（示意）',tba:'作品销售将于11月下旬开放',
+  workNote:'入选艺术家将在2026年11月15日截止后确定。这里的作品全部是示意图片。',
+  magTitle:'BETWEEN VENUES 创刊号「身边 / BESIDE」',magNo:'MAGAZINE',magState:'预计2026年11月下旬出版',pub:'出版',lang:'语言',artists:'收录',release:'出版时间',
+  magPub:'西京社',magLang:'日语・英语',magArt:'艺术家 12位',magRel:'2026年11月下旬（预计）',magBuy:'机构订阅・引进咨询 ↗',magSub:'关于创刊号 ↗',magNote:'机构或企业的引进（多册・定期订阅）请通过联系表单咨询。',
+  inThis:'在这个场所：'},
+ en:{title:'Where BETWEEN VENUES Issue 01 lives',sub:'Prototype / artworks and use cases are illustrations',walk:'Walk',click:'Click to view',uses:'Use cases',contact:'Subscriptions for organisations ↗',about:'About Issue 01 ↗',openCard:'Use cases for this place',
+  hintWalk:'Click or tap the floor to walk; stand in front of a work or the magazine to see it. Rotate with the buttons at bottom right.',hintClick:'Click or tap a work or the magazine. Drag to pan, scroll or pinch to zoom.',
+  rotL:'Rotate left (Q)',rotR:'Rotate right (E)',back:'Back to the room',size:'Size',medium:'Medium',artist:'Artist',inc:'Work in Issue 01 (placeholder)',tba:'Works go on sale in late November',
+  workNote:'Selected artists are decided after the 15 November 2026 deadline. All works shown here are placeholder images.',
+  magTitle:'BETWEEN VENUES Issue 01 “BESIDE”',magNo:'MAGAZINE',magState:'Out late November 2026',pub:'Publisher',lang:'Languages',artists:'Artists',release:'Release',
+  magPub:'Saikyosha',magLang:'Japanese / English',magArt:'12 artists',magRel:'Late November 2026 (planned)',magBuy:'Subscriptions for organisations ↗',magSub:'About Issue 01 ↗',magNote:'For multiple copies or a regular subscription for your organisation, please use the contact form.',
+  inThis:'In this place: '}
+};
+const L3=(ja,zh,en)=>({ja,zh,en});
+// 12 placeholder works of Issue 01
+const ART=[
+ {id:'A',style:'field',w:0.9,h:1.15,m:L3('油彩・キャンバス','布面油画','Oil on canvas'),t:L3('窓辺の色','窗边的颜色','Colour by the Window')},
+ {id:'B',style:'lines',w:0.8,h:0.6,m:L3('鉛筆・紙','铅笔・纸','Pencil on paper'),t:L3('となりの線','旁边的线','The Line Next Door')},
+ {id:'C',style:'snow',w:1.1,h:0.75,m:L3('写真','摄影','Photograph'),t:L3('帰り道','回家的路','The Way Home')},
+ {id:'D',style:'collage',w:0.7,h:0.9,m:L3('コラージュ','拼贴','Collage'),t:L3('手紙の束','一叠信','A Bundle of Letters')},
+ {id:'E',style:'ink',w:1.2,h:0.6,m:L3('墨・和紙','水墨・和纸','Ink on washi'),t:L3('息','呼吸','Breath')},
+ {id:'F',style:'dots',w:0.75,h:0.75,m:L3('アクリル','丙烯','Acrylic'),t:L3('点呼','点名','Roll Call')},
+ {id:'G',style:'textile',w:0.8,h:1.0,m:L3('テキスタイル','纺织','Textile'),t:L3('寄り添う糸','依偎的线','Threads Beside')},
+ {id:'H',style:'arch',w:0.9,h:0.9,m:L3('シルクスクリーン','丝网印刷','Screenprint'),t:L3('入口','入口','Entrance')},
+ {id:'I',style:'portrait',w:0.65,h:0.85,m:L3('水彩','水彩','Watercolour'),t:L3('祖母の椅子','祖母的椅子','Grandmother’s Chair')},
+ {id:'J',style:'grid',w:1.0,h:0.7,m:L3('デジタルプリント','数码打印','Digital print'),t:L3('病棟の朝','病房的早晨','Morning on the Ward')},
+ {id:'K',style:'wave',w:1.15,h:0.7,m:L3('木版画','木版画','Woodcut'),t:L3('遠くの海','远方的海','A Distant Sea')},
+ {id:'L',style:'garden',w:0.85,h:0.65,m:L3('写真','摄影','Photograph'),t:L3('小さな庭','小小的庭院','A Small Garden')}
+];
+ART.forEach(a=>a.artist=L3('参加アーティスト '+a.id+'（11月発表）','参展艺术家 '+a.id+'（11月公布）','Artist '+a.id+' (announced in November)'));
+
+// spaces: walls a=z-, l=x-, s=z+, r=x+ ; furniture in room coordinates
+const SPACES=[
+ {id:'hospital',no:'01',RX:6.5,RZ:4.5,wall:0xeef0ec,floor:{type:'tile',c:'#cfd6cf',l:'#b7c1b8'},
+  name:L3('病院の待合室','医院候诊室','Hospital waiting room'),
+  lede:L3('待ち時間を、展覧会を見る時間に。','把等待的时间，变成看展的时间。','Turn waiting time into time with an exhibition.'),
+  uses:[L3('待合のラックに置き、順番を待つあいだに手に取って読める。','放在候诊区的杂志架上，排队时随手翻阅。','Kept in the waiting-room rack, to pick up while waiting.'),
+        L3('見開きページを額に入れて壁に掛け、号ごとに掛け替える。','把跨页装进画框挂在墙上，每期更换。','Frame a spread for the wall and change it with each issue.'),
+        L3('外出が難しい入院患者さんの病室にも届けられる。','也可以送到难以外出的住院病人床边。','Bring it to the bedside of patients who cannot go out.')],
+  items:[['art','a',-4.0,'J'],['art','a',-1.0,'A'],['art','l',-1.6,'C'],['art','s',-3.6,'L'],['art','r',0.8,'F']],
+  furn:[['counter',4.4,-3.5,3.2,0.8,0],['plant',6.0,-4.0],['plant',-6.0,3.9],
+        ['bench',-1.6,-0.6,3.4,0],['bench',-1.6,1.2,3.4,0],['bench',-1.6,3.0,3.4,0],['bench',2.6,1.2,2.4,0],['bench',2.6,3.0,2.4,0],
+        ['rack',-6.05,1.6,1.57],['magOpen',-1.1,1.2,0.45,0.2],['window','r',-2.6,1.6,1.1]]},
+ {id:'care',no:'02',RX:6.0,RZ:4.5,wall:0xf3ece0,floor:{type:'wood',c:'#c9a982',l:'#b08d66'},
+  name:L3('介護施設の談話室','养老院交谊厅','Care-home lounge'),
+  lede:L3('出かけられなくても、展覧会のほうから訪ねてくる。','就算出不了门，展览也会来拜访。','If you cannot go out, the exhibition comes to visit.'),
+  uses:[L3('テーブルに開いて置き、入居者どうしの会話のきっかけに。','翻开放在桌上，成为住户之间聊天的话题。','Leave it open on the table to start conversations between residents.'),
+        L3('号の入れ替えに合わせて、鑑賞のレクリエーションに。','配合每期更换，作为赏析活动的素材。','Use each new issue for an art-viewing activity.'),
+        L3('大きな図版と短い文章で、読み聞かせにも向いている。','图片大、文字短，也适合朗读给大家听。','Large plates and short texts make it easy to read aloud.')],
+  items:[['art','a',-3.6,'I'],['art','a',3.4,'G'],['art','l',0.0,'K'],['art','s',2.4,'D'],['art','r',-1.4,'E']],
+  furn:[['window','a',0.0,2.6,1.4],['rug',-0.6,0.6,4.6,3.2,'#a9b8a3'],['sofa',-0.6,-1.4,2.6,0,'#7f9481'],['sofa',-3.4,0.8,2.0,1.57,'#7f9481'],
+        ['roundTable',-0.4,0.8,0.55],['arm',1.6,0.4,-1.2,'#c27d5f'],['arm',1.4,2.2,-2.2,'#c27d5f'],['shelfLow',4.6,3.6,2.2,3.14],['plant',5.4,-3.9],['plant',-5.4,-3.9],
+        ['magOpen',-0.4,0.8,0.57,0.3],['magClosed',4.4,3.6,0.86,0]]},
+ {id:'office',no:'03',RX:7.0,RZ:4.5,wall:0xf1efea,floor:{type:'wood',c:'#8b7058',l:'#73594a'},
+  name:L3('オフィスのラウンジ','企业休息区','Office lounge'),
+  lede:L3('働く場所に、号ごとに入れ替わる小さな展示を。','在工作的地方，放一个每期更换的小展览。','A small exhibition at work that changes with every issue.'),
+  uses:[L3('エントランスや来客スペースに置き、企業の文化発信に。','放在入口或会客区，作为企业的文化名片。','Place it in the entrance or guest area as part of your culture.'),
+        L3('休憩時間に、社員が作品と出会う時間をつくる。','让员工在休息时间与作品相遇。','Give staff a moment with art during their break.'),
+        L3('気に入った作品は購入や社内展示の相談もできる。','喜欢的作品可以咨询购买或在公司内展出。','Works you like can be bought or shown in the office.')],
+  items:[['art','a',-4.6,'H'],['art','a',-1.6,'B'],['art','l',1.4,'A'],['art','s',0.6,'K'],['art','r',-1.6,'G'],['art','r',1.6,'C']],
+  furn:[['table',-1.0,0.6,3.6,1.1],['chairRow',-1.0,0.6,3.6,1.1],['counter',4.6,-3.6,3.0,0.7,0],['plant',6.5,3.9],['sofa',4.2,2.2,2.4,3.14,'#3d4f55'],
+        ['lowTable',4.2,1.1,1.2,0.6],['magClosed',4.0,1.1,0.43,0.3],['magOpen',-1.6,0.6,0.73,-0.1],['window','a',2.4,1.6,1.6]]},
+ {id:'library',no:'04',RX:6.5,RZ:5.0,wall:0xf4f0e6,floor:{type:'carpet',c:'#6f7d86',l:'#65727b'},
+  name:L3('学校の図書室','学校图书室','School library'),
+  lede:L3('美術館に行く前の、最初の一冊。','去美术馆之前的第一本书。','The first book before the first museum visit.'),
+  uses:[L3('雑誌コーナーに置き、生徒がいつでも手に取れる。','放在杂志区，学生随时可以取阅。','In the magazine corner, open to students at any time.'),
+        L3('美術や探究の授業の教材として使える。','可以作为美术课或探究课的教材。','As material for art and inquiry-based classes.'),
+        L3('日英併記なので、語学の副教材にもなる。','日英双语，也可以作为语言辅助教材。','Bilingual Japanese and English, useful for language classes too.')],
+  items:[['art','r',-2.4,'F'],['art','r',0.6,'L'],['art','s',2.6,'H'],['art','s',-0.6,'B'],['art','a',4.6,'E']],
+  furn:[['shelf',-4.2,-4.65,4.2,0],['shelf',0.6,-4.65,3.0,0],['shelf',-6.15,-0.6,3.6,1.57],['shelf',-6.15,3.2,2.6,1.57],
+        ['table',-1.4,0.4,2.6,1.1],['chairRow',-1.4,0.4,2.6,1.1],['table',2.6,0.4,2.0,1.1],['chairRow',2.6,0.4,2.0,1.1],
+        ['stand',4.8,3.6,0],['plant',6.0,-4.4],['magOpen',-1.9,0.4,0.73,0.1]]},
+ {id:'cafe',no:'05',RX:5.5,RZ:4.0,wall:0xebe2d3,floor:{type:'tile',c:'#d8cbb6',l:'#c2b399'},
+  name:L3('街のカフェ','社区咖啡馆','Neighbourhood café'),
+  lede:L3('コーヒー一杯分の展覧会。','一杯咖啡的时间，看一场展览。','An exhibition for the length of a coffee.'),
+  uses:[L3('テーブルや棚に置き、お客さまが自由に閲覧できる。','放在桌上或架子上，客人可以自由翻阅。','On tables and shelves for customers to browse freely.'),
+        L3('収録作家の小さな展示と組み合わせて企画できる。','可以和收录艺术家的小型展示一起策划。','Pair it with a small show of an artist from the issue.'),
+        L3('雑誌の販売・取り寄せの窓口にもなる。','也可以成为杂志的销售和订购窗口。','Become a place where the magazine can be bought or ordered.')],
+  items:[['art','a',-3.4,'D'],['art','l',-1.0,'C'],['art','l',1.8,'I'],['art','s',1.6,'J'],['art','r',0.4,'K']],
+  furn:[['counter',2.6,-3.4,4.2,0.8,0],['shelfLow',-4.9,-3.5,1.6,0],['cafeSet',-2.6,-0.4],['cafeSet',0.4,0.4],['cafeSet',-2.0,2.4],['cafeSet',2.6,2.3],['plant',5.0,3.5],
+        ['magOpen',0.4,0.4,0.75,0.4],['magClosed',-4.9,-3.5,0.86,0],['window','r',-1.8,1.6,1.4]]}
+];
+
+let lang='ja';const $=s=>document.querySelector(s);
+const rnd=seed=>{let s=seed%2147483647||7;return()=>{s=(s*16807)%2147483647;return(s-1)/2147483646}};
+// ---------- placeholder art ----------
+function genArt(style,w,h,seed){const c=document.createElement('canvas');c.width=w;c.height=h;const g=c.getContext('2d');const r=rnd(seed*131+17);
+ const bg={field:'#d9cdb5',lines:'#f3f0e8',snow:'#dde3e6',collage:'#efe8da',ink:'#f1ece0',dots:'#f2d9c0',textile:'#b8442b',arch:'#e8c547',portrait:'#f0ebe2',grid:'#e3e8ea',wave:'#efe6d4',garden:'#cfd8c4'}[style];
+ g.fillStyle=bg;g.fillRect(0,0,w,h);
+ if(style==='field'){[['#c96a46',.08,.1,.84,.42],['#2f4f63',.08,.55,.84,.37]].forEach(([c0,x,y,ww,hh])=>{g.fillStyle=c0;g.globalAlpha=.9;g.fillRect(w*x,h*y,w*ww,h*hh)});g.globalAlpha=1;}
+ if(style==='lines'){g.strokeStyle='#2b2926';g.lineWidth=1.4;for(let k=0;k<26;k++){g.beginPath();let x=w*.1,y=h*(.2+k*.024);g.moveTo(x,y);for(let i=0;i<20;i++){x+=w*.04;y+=(r()-.5)*h*.02;g.lineTo(x,y)}g.stroke()}}
+ if(style==='snow'){const L=g.createLinearGradient(0,0,0,h);L.addColorStop(0,'#aebcc6');L.addColorStop(.55,'#e6eaec');L.addColorStop(1,'#f5f6f5');g.fillStyle=L;g.fillRect(0,0,w,h);
+   g.fillStyle='#3a3d40';g.fillRect(w*.62,h*.5,w*.012,h*.12);g.beginPath();g.arc(w*.626,h*.485,w*.012,0,7);g.fill();g.fillStyle='rgba(60,60,60,.25)';g.fillRect(0,h*.62,w,1.5)}
+ if(style==='collage'){for(let i=0;i<9;i++){g.save();g.translate(w*(.2+r()*.6),h*(.2+r()*.6));g.rotate((r()-.5)*.6);g.fillStyle=['#f8f4ea','#d8c8a8','#b8442b','#23504a','#e8c547','#a7b4bc'][i%6];
+   g.fillRect(-w*.18,-h*.1,w*(.2+r()*.2),h*(.12+r()*.15));g.fillStyle='rgba(40,40,40,.5)';for(let k=0;k<4;k++)g.fillRect(-w*.15,-h*.06+k*h*.03,w*.2*r(),1.5);g.restore()}}
+ if(style==='ink'){g.fillStyle='rgba(28,26,23,.88)';g.beginPath();g.moveTo(w*.12,h*.6);for(let i=0;i<=40;i++){const x=w*(.12+i*.019),y=h*(.6-Math.sin(i/40*Math.PI)*.32)+(r()-.5)*h*.03;g.lineTo(x,y)}
+   for(let i=40;i>=0;i--){const x=w*(.12+i*.019),y=h*(.6-Math.sin(i/40*Math.PI)*.22)+(r()-.5)*h*.02;g.lineTo(x,y)}g.fill();g.fillStyle='#b8442b';g.fillRect(w*.82,h*.74,w*.05,w*.05)}
+ if(style==='dots'){for(let i=0;i<70;i++){g.fillStyle=['#23504a','#b8442b','#1c1a17','#e8c547'][i%4];g.globalAlpha=.85;g.beginPath();g.arc(w*(.1+r()*.8),h*(.1+r()*.8),w*(.012+r()*.03),0,7);g.fill()}g.globalAlpha=1}
+ if(style==='textile'){for(let y=0;y<h;y+=6){g.fillStyle=y%12?'rgba(242,237,226,.12)':'rgba(28,26,23,.15)';g.fillRect(0,y,w,3)}for(let x=0;x<w;x+=10){g.fillStyle='rgba(242,237,226,.08)';g.fillRect(x,0,2,h)}
+   g.strokeStyle='#f2ede2';g.lineWidth=w*.02;g.beginPath();g.moveTo(w*.2,h*.9);g.bezierCurveTo(w*.3,h*.2,w*.7,h*.8,w*.8,h*.1);g.stroke()}
+ if(style==='arch'){g.fillStyle='#23504a';g.beginPath();g.moveTo(w*.28,h*.9);g.lineTo(w*.28,h*.45);g.arc(w*.5,h*.45,w*.22,Math.PI,0);g.lineTo(w*.72,h*.9);g.fill();g.fillStyle='#f2ede2';g.fillRect(w*.47,h*.62,w*.06,h*.28)}
+ if(style==='portrait'){g.fillStyle='rgba(184,68,43,.25)';g.beginPath();g.ellipse(w*.5,h*.55,w*.3,h*.32,0,0,7);g.fill();g.strokeStyle='rgba(60,50,40,.8)';g.lineWidth=3;
+   g.strokeRect(w*.32,h*.38,w*.36,h*.22);g.beginPath();g.moveTo(w*.34,h*.6);g.lineTo(w*.34,h*.85);g.moveTo(w*.66,h*.6);g.lineTo(w*.66,h*.85);g.moveTo(w*.32,h*.6);g.lineTo(w*.68,h*.6);g.stroke()}
+ if(style==='grid'){for(let i=0;i<6;i++)for(let j=0;j<4;j++){g.fillStyle=`rgba(${100+r()*80},${130+r()*70},${150+r()*60},.8)`;g.fillRect(w*(.08+i*.145),h*(.1+j*.2),w*.13,h*.17)}
+   g.fillStyle='#fff6d9';g.fillRect(w*.08+w*.145*3,h*.1,w*.13,h*.17)}
+ if(style==='wave'){for(let k=0;k<9;k++){g.strokeStyle=k%3?'#2f4f63':'#b8442b';g.lineWidth=h*.025;g.beginPath();for(let x=0;x<=w;x+=6){const y=h*(.3+k*.07)+Math.sin(x/w*12+k)*h*.025;x?g.lineTo(x,y):g.moveTo(x,y)}g.stroke()}}
+ if(style==='garden'){g.fillStyle='#8aa07d';for(let i=0;i<40;i++){g.beginPath();g.arc(r()*w,h*(.45+r()*.5),w*(.03+r()*.06),0,7);g.fill()}g.fillStyle='#e8c547';for(let i=0;i<14;i++){g.beginPath();g.arc(r()*w,h*(.5+r()*.45),w*.012,0,7);g.fill()}}
+ const id=g.getImageData(0,0,w,h),d=id.data;for(let i=0;i<d.length;i+=4){const n=(r()-.5)*12;d[i]+=n;d[i+1]+=n;d[i+2]+=n}g.putImageData(id,0,0);return c}
+function coverCanvas(){const c=document.createElement('canvas');c.width=360;c.height=480;const g=c.getContext('2d');
+ const L=g.createLinearGradient(0,0,0,480);L.addColorStop(0,'#3d4246');L.addColorStop(1,'#1f2225');g.fillStyle=L;g.fillRect(0,0,360,480);
+ const r=rnd(3);for(let i=0;i<500;i++){g.fillStyle=`rgba(255,255,255,${r()*.08})`;g.fillRect(r()*360,120+r()*300,1+r()*2,1)}
+ g.fillStyle='rgba(235,235,230,.55)';g.beginPath();g.ellipse(150,250,26,80,.1,0,7);g.fill();
+ g.fillStyle='#f4f2ec';g.font='800 46px "Zen Kaku Gothic New",sans-serif';g.fillText('Between Venues',18,62);
+ g.font='500 11px sans-serif';g.fillStyle='#d8d6d0';g.fillText('ISSUE 01 · SAIKYOSHA',22,84);
+ g.fillStyle='#e8c547';g.font='600 40px "Cormorant Garamond",serif';g.textAlign='center';g.fillText('B E S I D E',180,330);
+ g.font='500 13px "Shippori Mincho",serif';g.fillStyle='#e7e2d6';g.fillText('そ ば に',180,356);return c}
+const ART_CV={};ART.forEach((a,i)=>{const cv=genArt(a.style,Math.round(a.w*520),Math.round(a.h*520),i+1);ART_CV[a.id]=cv;a.thumb=cv.toDataURL('image/jpeg',.7)});
+const COVER=coverCanvas();const COVER_URL=COVER.toDataURL('image/jpeg',.75);
+
+// ---------- three basics ----------
+const stage=$('#stage');const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.outputEncoding=THREE.sRGBEncoding;stage.appendChild(renderer.domElement);
+const scene=new THREE.Scene();scene.background=new THREE.Color(0x1c1a17);
+const VIEW=12;let aspect=1;const camera=new THREE.OrthographicCamera(-6,6,6,-6,0.02,200);
+let azim=Math.PI/4,azimGoal=azim;const ISO=new THREE.Vector3();const setISO=()=>ISO.set(Math.SQRT2*Math.cos(azim),1.05,Math.SQRT2*Math.sin(azim)).normalize().multiplyScalar(40);setISO();
+const target=new THREE.Vector3(0,0.8,0);camera.position.copy(target).add(ISO);camera.lookAt(target);
+scene.add(new THREE.HemisphereLight(0xfff8ee,0x6b6257,0.78));
+const sun=new THREE.DirectionalLight(0xfff3e2,0.5);sun.position.set(6,14,9);sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);Object.assign(sun.shadow.camera,{left:-10,right:10,top:10,bottom:-10,near:1,far:40});scene.add(sun);
+const tex=c=>{const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;t.anisotropy=8;return t};
+const COVER_TEX=tex(COVER);
+const washTex=(()=>{const c=document.createElement('canvas');c.width=c.height=256;const g=c.getContext('2d');const L=g.createRadialGradient(128,70,10,128,120,130);L.addColorStop(0,'rgba(255,240,215,.5)');L.addColorStop(1,'rgba(255,240,215,0)');g.fillStyle=L;g.fillRect(0,0,256,256);return new THREE.CanvasTexture(c)})();
+const MAT={};const mat=(hex,rough=.85)=>MAT[hex+'_'+rough]||(MAT[hex+'_'+rough]=new THREE.MeshStandardMaterial({color:hex,roughness:rough}));
+const edgeMat=new THREE.LineBasicMaterial({color:0x8d867a,transparent:true,opacity:.5});
+function floorTex(f){const c=document.createElement('canvas');c.width=c.height=512;const g=c.getContext('2d');g.fillStyle=f.c;g.fillRect(0,0,512,512);const r=rnd(11);
+ if(f.type==='tile'){g.strokeStyle=f.l;g.lineWidth=2;for(let i=0;i<=512;i+=64){g.beginPath();g.moveTo(i,0);g.lineTo(i,512);g.stroke();g.beginPath();g.moveTo(0,i);g.lineTo(512,i);g.stroke()}}
+ if(f.type==='wood'){for(let y=0;y<512;y+=32){g.fillStyle=f.l;g.fillRect(0,y,512,1.5);const off=r()*512;g.fillRect(off,y,1.5,32);for(let k=0;k<6;k++){g.fillStyle=`rgba(60,40,20,${r()*.08})`;g.fillRect(0,y+r()*32,512,1)}}}
+ if(f.type==='carpet'){for(let i=0;i<14000;i++){g.fillStyle=r()<.5?f.l:'rgba(255,255,255,.05)';g.fillRect(r()*512,r()*512,1.5,1.5)}}
+ for(let i=0;i<5000;i++){g.fillStyle=`rgba(0,0,0,${r()*.04})`;g.fillRect(r()*512,r()*512,2,2)}
+ const t=tex(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;return t}
+
+// ---------- room state ----------
+let room=null;const WH=3.0,TH=0.2;
+function clearRoom(){if(!room)return;scene.remove(room.group);room.group.traverse(o=>{if(o.geometry)o.geometry.dispose();[].concat(o.material||[]).forEach(m=>{if(m.map&&m.map!==COVER_TEX&&m.map.dispose)m.map.dispose()})})}
+function buildRoom(idx){
+ clearRoom();const S=SPACES[idx];const RX=S.RX,RZ=S.RZ;const G=new THREE.Group();scene.add(G);
+ const R={S,RX,RZ,group:G,items:[],clickables:[],rects:[],outer:[]};room=R;
+ const add=(m,parent=G)=>{parent.add(m);return m};
+ const box=(w,h,d,m,x,y,z,parent=G,edges=false)=>{const b=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);b.position.set(x,y,z);b.castShadow=true;b.receiveShadow=true;parent.add(b);if(edges)b.add(new THREE.LineSegments(new THREE.EdgesGeometry(b.geometry),edgeMat));return b};
+ // floor
+ const ft=floorTex(S.floor);ft.repeat.set(RX/2,RZ/2);const fl=new THREE.Mesh(new THREE.PlaneGeometry(RX*2,RZ*2),new THREE.MeshStandardMaterial({map:ft,roughness:1}));fl.rotation.x=-Math.PI/2;fl.receiveShadow=true;add(fl);R.floor=fl;
+ box(RX*2+0.4,0.4,RZ*2+0.4,mat(0x2a2723),0,-0.215,0);
+ const wm=new THREE.MeshStandardMaterial({color:S.wall,roughness:.95});
+ [['a',[RX*2+TH*2,WH,TH],[0,WH/2,-RZ-TH/2],[0,0,-1]],['l',[TH,WH,RZ*2],[-RX-TH/2,WH/2,0],[-1,0,0]],['s',[RX*2+TH*2,WH,TH],[0,WH/2,RZ+TH/2],[0,0,1]],['r',[TH,WH,RZ*2],[RX+TH/2,WH/2,0],[1,0,0]]]
+  .forEach(([k,s,p,o])=>{const m=box(...s,wm,...p,G,true);R.outer.push({k,m,out:new THREE.Vector3(...o),h:WH,attached:[]})});
+ const wallOf=k=>R.outer.find(o=>o.k===k);
+ // wall placement helper: returns group positioned on wall k at along-position p, height y
+ const onWall=(k,p,y)=>{const g=new THREE.Group();const n=new THREE.Vector3();
+  if(k==='a'){g.position.set(p,y,-RZ+0.02);n.set(0,0,1)} if(k==='l'){g.position.set(-RX+0.02,y,p);g.rotation.y=Math.PI/2;n.set(1,0,0)}
+  if(k==='s'){g.position.set(p,y,RZ-0.02);g.rotation.y=Math.PI;n.set(0,0,-1)} if(k==='r'){g.position.set(RX-0.02,y,p);g.rotation.y=-Math.PI/2;n.set(-1,0,0)}
+  G.add(g);g.updateMatrixWorld(true);wallOf(k).attached.push(g);return[g,n]};
+ const block=(x,z,w,d,rot=0,m=0.35)=>{const sw=Math.abs(Math.sin(rot))>.5;const W=sw?d:w,D=sw?w:d;R.rects.push([x-W/2-m,x+W/2+m,z-D/2-m,z+D/2+m])};
+ const grp=(x,z,rot)=>{const g=new THREE.Group();g.position.set(x,0,z);g.rotation.y=rot||0;G.add(g);return g};
+ const wood=mat(0xb48c63,.7),lwood=mat(0xd2b48d,.7),white=mat(0xf5f2ec,.8),dark=mat(0x2a2723,.6),metal=mat(0x9a9a96,.4);
+ const F={
+  bench:(x,z,len,rot)=>{const g=grp(x,z,rot);box(len,0.08,0.46,mat(0x23504a,.8),0,0.44,0,g);box(len,0.42,0.06,mat(0x23504a,.8),0,0.7,0.22,g);for(const sx of[-len/2+0.15,len/2-0.15])box(0.06,0.42,0.4,metal,sx,0.21,0,g);block(x,z,len,0.5,rot)},
+  counter:(x,z,w,d,rot)=>{const g=grp(x,z,rot);box(w,1.0,d,white,0,0.5,0,g,true);box(w+0.06,0.05,d+0.06,mat(0x23504a,.6),0,1.02,0,g);block(x,z,w,d,rot)},
+  plant:(x,z)=>{const g=grp(x,z);const pot=new THREE.Mesh(new THREE.CylinderGeometry(0.2,0.16,0.42,16),mat(0xb8442b,.8));pot.position.y=0.21;pot.castShadow=true;g.add(pot);
+   for(let i=0;i<5;i++){const s=new THREE.Mesh(new THREE.SphereGeometry(0.22+i%2*0.06,12,10),mat(0x5f7a5a,.9));s.position.set((i%3-1)*0.12,0.62+i*0.13,(i%2-0.5)*0.12);s.castShadow=true;g.add(s)}block(x,z,0.4,0.4,0,0.25)},
+  rack:(x,z,rot)=>{const g=grp(x,z,rot);box(1.0,1.2,0.28,lwood,0,0.6,0,g,true);for(let i=0;i<2;i++){const sh=box(0.94,0.03,0.24,lwood,0,0.45+i*0.42,0.04,g);}
+   for(let i=0;i<3;i++){const m=new THREE.Mesh(new THREE.BoxGeometry(0.24,0.32,0.012),[mat(0xeeeeea),mat(0xeeeeea),mat(0xeeeeea),mat(0xeeeeea),new THREE.MeshStandardMaterial({map:COVER_TEX}),mat(0xeeeeea)]);
+    m.position.set(-0.3+i*0.3,0.64+(i%2)*0.42,0.16);m.rotation.x=-0.25;m.castShadow=true;g.add(m);if(i===1)reg(m,'mag',g,new THREE.Vector3(0,0,1).applyQuaternion(g.quaternion))}block(x,z,1.0,0.3,rot)},
+  window:(k,p,y,w)=>{const[g]=onWall(k,p,y);const fr=new THREE.Mesh(new THREE.BoxGeometry(w+0.12,1.5+0.12,0.04),white);g.add(fr);
+   const c=document.createElement('canvas');c.width=128;c.height=160;const x=c.getContext('2d');const L=x.createLinearGradient(0,0,0,160);L.addColorStop(0,'#bcd2df');L.addColorStop(1,'#eef3f1');x.fillStyle=L;x.fillRect(0,0,128,160);
+   x.fillStyle='rgba(130,160,120,.6)';for(let i=0;i<10;i++){x.beginPath();x.arc(Math.random()*128,130+Math.random()*30,12+Math.random()*14,0,7);x.fill()}
+   const gl=new THREE.Mesh(new THREE.PlaneGeometry(w,1.5),new THREE.MeshBasicMaterial({map:tex(c)}));gl.position.z=0.025;g.add(gl);const mul=new THREE.Mesh(new THREE.BoxGeometry(0.03,1.5,0.02),white);mul.position.z=0.03;g.add(mul)},
+  rug:(x,z,w,d,col)=>{const m=new THREE.Mesh(new THREE.PlaneGeometry(w,d),new THREE.MeshStandardMaterial({color:new THREE.Color(col),roughness:1}));m.rotation.x=-Math.PI/2;m.position.set(x,0.006,z);m.receiveShadow=true;G.add(m)},
+  sofa:(x,z,w,rot,col)=>{const g=grp(x,z,rot);const c=mat(new THREE.Color(col).getHex(),.95);box(w,0.42,0.86,c,0,0.21,0,g);box(w,0.48,0.2,c,0,0.62,-0.33,g);box(0.18,0.62,0.86,c,-w/2+0.09,0.31,0,g);box(0.18,0.62,0.86,c,w/2-0.09,0.31,0,g);block(x,z,w,0.9,rot,0.25)},
+  arm:(x,z,rot,col)=>{const g=grp(x,z,rot);const c=mat(new THREE.Color(col).getHex(),.95);box(0.72,0.4,0.72,c,0,0.2,0,g);box(0.72,0.45,0.16,c,0,0.6,-0.28,g);block(x,z,0.75,0.75,rot,0.2)},
+  roundTable:(x,z,rad)=>{const g=grp(x,z);const t=new THREE.Mesh(new THREE.CylinderGeometry(rad,rad,0.05,28),lwood);t.position.y=0.55;t.castShadow=true;g.add(t);const s=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.18,0.55,12),dark);s.position.y=0.27;g.add(s);block(x,z,rad*2,rad*2,0,0.3)},
+  table:(x,z,w,d)=>{const g=grp(x,z);box(w,0.05,d,lwood,0,0.73,0,g);for(const sx of[-1,1])for(const sz of[-1,1])box(0.05,0.72,0.05,dark,sx*(w/2-0.1),0.36,sz*(d/2-0.1),g);block(x,z,w,d,0,0.55)},
+  lowTable:(x,z,w,d)=>{const g=grp(x,z);box(w,0.05,d,wood,0,0.4,0,g);box(w-0.1,0.38,d-0.1,dark,0,0.19,0,g);block(x,z,w,d,0,0.25)},
+  chairRow:(x,z,w,d)=>{const n=Math.max(2,Math.round(w/0.9));for(let i=0;i<n;i++){const cx=x-w/2+(i+.5)*w/n;chair(cx,z-d/2-0.32,0);chair(cx,z+d/2+0.32,Math.PI)}},
+  shelf:(x,z,w,rot)=>{const g=grp(x,z,rot);box(w,2.1,0.34,wood,0,1.05,0,g,true);const r=rnd(Math.round(x*100+z*7)+99);const cols=[0xb8442b,0x23504a,0xe8c547,0x6f7d86,0xf2ede2,0x8d867a,0x2a2723];
+   for(let row=0;row<4;row++){let px=-w/2+0.08;while(px<w/2-0.12){const bw=0.04+r()*0.05,bh=0.28+r()*0.12;box(bw,bh,0.24,mat(cols[(r()*cols.length)|0],.9),px+bw/2,0.12+row*0.5+bh/2,0.02,g);px+=bw+0.006}}block(x,z,w,0.36,rot,0.3)},
+  shelfLow:(x,z,w,rot)=>{const g=grp(x,z,rot);box(w,0.85,0.38,wood,0,0.425,0,g,true);block(x,z,w,0.4,rot,0.3)},
+  stand:(x,z,rot)=>{const g=grp(x,z,rot);box(0.7,1.1,0.4,lwood,0,0.55,0,g,true);const m=new THREE.Mesh(new THREE.BoxGeometry(0.3,0.4,0.015),[mat(0xeeeeea),mat(0xeeeeea),mat(0xeeeeea),mat(0xeeeeea),new THREE.MeshStandardMaterial({map:COVER_TEX}),mat(0xeeeeea)]);
+   m.position.set(0,1.3,0.06);m.rotation.x=-0.22;m.castShadow=true;g.add(m);reg(m,'mag',g,new THREE.Vector3(0,0,1).applyQuaternion(g.quaternion));block(x,z,0.7,0.4,rot)},
+  cafeSet:(x,z)=>{F.roundTable(x,z,0.38);chair(x-0.72,z,Math.PI/2);chair(x+0.72,z,-Math.PI/2)},
+  magOpen:(x,z,y,rot)=>{const g=grp(x,z,rot);g.position.y=y+0.004;const pages=[ART_CV[ART[(x*7+z*3|0)%12<0?0:Math.abs((x*7+z*3)|0)%12].id],ART_CV[ART[Math.abs((x*5+z*11)|0)%12].id]];
+   pages.forEach((cv,i)=>{const c=document.createElement('canvas');c.width=240;c.height=320;const q=c.getContext('2d');q.fillStyle='#f7f5ef';q.fillRect(0,0,240,320);q.drawImage(cv,24,40,192,192*cv.height/cv.width);
+    q.fillStyle='#55504a';q.font='11px sans-serif';for(let k=0;k<5;k++)q.fillRect(24,262+k*9,150+(k%2)*30,2);
+    const p=new THREE.Mesh(new THREE.BoxGeometry(0.24,0.006,0.32),[white,white,new THREE.MeshStandardMaterial({map:tex(c),roughness:.9}),white,white,white]);p.position.set(i?0.121:-0.121,0,0);p.rotation.z=i?-0.04:0.04;p.castShadow=true;g.add(p);reg(p,'mag',g,new THREE.Vector3(0,1,0))})},
+  magClosed:(x,z,y,rot)=>{const g=grp(x,z,rot);g.position.y=y+0.008;const m=new THREE.Mesh(new THREE.BoxGeometry(0.24,0.014,0.32),[white,white,new THREE.MeshStandardMaterial({map:COVER_TEX}),white,white,white]);m.castShadow=true;g.add(m);reg(m,'mag',g,new THREE.Vector3(0,1,0))}
+ };
+ function chair(x,z,rot){const g=grp(x,z,rot);box(0.44,0.05,0.44,wood,0,0.45,0,g);box(0.44,0.42,0.04,wood,0,0.7,-0.2,g);for(const sx of[-1,1])for(const sz of[-1,1])box(0.035,0.45,0.035,dark,sx*0.19,0.225,sz*0.19,g)}
+ // register clickable
+ const magInfo={kind:'mag',id:'MAG',thumb:COVER_URL};
+ function reg(mesh,kind,parent,normal){if(kind==='mag'){mesh.userData.ref=magInfo;R.clickables.push(mesh);
+   if(!magInfo.center){parent.updateMatrixWorld(true);const c=new THREE.Vector3();mesh.getWorldPosition(c);magInfo.center=c;magInfo.normal=normal.clone();magInfo.wall=null;
+     const sp=c.clone();sp.y=0;const off=normal.y>0.5?new THREE.Vector3(0.9,0,0.9):normal.clone().setY(0).normalize().multiplyScalar(1.3);magInfo.spot=sp.add(off);magInfo.hl=null}}}
+ S.furn.forEach(f=>F[f[0]](...f.slice(1)));
+ // artworks
+ S.items.forEach(([_,k,p,aid])=>{const a=ART.find(x=>x.id===aid);const[g,n]=onWall(k,p,1.6);
+  {const fr=new THREE.Mesh(new THREE.BoxGeometry(a.w+0.08,a.h+0.08,0.04),mat(0x1c1a17,.6));fr.position.z=0.02;fr.castShadow=true;g.add(fr)}
+  const pic=new THREE.Mesh(new THREE.PlaneGeometry(a.w,a.h),new THREE.MeshStandardMaterial({map:tex(ART_CV[aid]),roughness:.8}));pic.position.z=0.042;g.add(pic);
+  const wash=new THREE.Mesh(new THREE.PlaneGeometry(a.w*2.4,2.4),new THREE.MeshBasicMaterial({map:washTex,transparent:true,depthWrite:false}));wash.position.set(0,0.35,0.006);g.add(wash);
+  const hl=new THREE.Mesh(new THREE.PlaneGeometry(a.w+0.24,a.h+0.24),new THREE.MeshBasicMaterial({color:0xe8c547,transparent:true,opacity:0}));hl.position.z=0.004;g.add(hl);
+  const it={kind:'work',a,wall:k,grp:g,normal:n,hl,center:new THREE.Vector3(),w:a.w,h:a.h,thumb:a.thumb,id:aid};g.localToWorld(it.center.set(0,0,0.05));
+  const sp=it.center.clone().add(n.clone().multiplyScalar(1.7));sp.y=0;it.spot=sp;g.children.forEach(m=>{if(m!==wash&&m!==hl){m.userData.ref=it;R.clickables.push(m)}});R.items.push(it)});
+ R.items.push(magInfo);
+ // floor sign
+ const sc=document.createElement('canvas');sc.width=1024;sc.height=180;const sg=sc.getContext('2d');sg.fillStyle='#1c1a17';sg.globalAlpha=.75;sg.font='600 78px "Shippori Mincho",serif';sg.fillText(S.name.ja,8,92);
+ sg.font='500 32px "Cormorant Garamond",serif';sg.fillStyle='#55504a';sg.fillText('BETWEEN VENUES · ISSUE 01 · '+S.name.en.toUpperCase(),12,148);
+ const sign=new THREE.Mesh(new THREE.PlaneGeometry(4.2,0.74),new THREE.MeshBasicMaterial({map:tex(sc),transparent:true}));sign.rotation.x=-Math.PI/2;sign.position.set(RX-2.4,0.008,RZ-0.6);G.add(sign);R.rects.push([RX-4.6,RX,RZ-1,RZ]);R.rects.pop();
+ // grid
+ const CELL=0.25,GX=Math.round(RX*2/CELL),GZ=Math.round(RZ*2/CELL);const bl=new Uint8Array(GX*GZ);
+ for(let i=0;i<GX;i++)for(let j=0;j<GZ;j++){const x=-RX+(i+.5)*CELL,z=-RZ+(j+.5)*CELL;let b=x<-RX+0.4||x>RX-0.4||z<-RZ+0.4||z>RZ-0.4;if(!b)for(const q of R.rects)if(x>q[0]&&x<q[1]&&z>q[2]&&z<q[3]){b=true;break}bl[i+j*GX]=b?1:0}
+ Object.assign(R,{CELL,GX,GZ,bl});
+ // visitor start
+ const st=nearestFree(...toCell(RX-1.4,RZ-1.2));const[wx,wz]=toWorld(...st);visitor.position.set(wx,0,wz);route=[];pending=null;lastArrive=null;marker.material.opacity=0;
+ target.set(0,0.8,0);azim=azimGoal=Math.PI/4;setISO();camera.position.copy(target).add(ISO);overviewZoom=Math.min(1,10.5/Math.max(RX*1.15,RZ*1.6));camera.zoom=overviewZoom;camera.updateProjectionMatrix();
+ R.outer.forEach(o=>o.h=WH);
+}
+const toCell=(x,z)=>[Math.floor((x+room.RX)/room.CELL),Math.floor((z+room.RZ)/room.CELL)],toWorld=(i,j)=>[-room.RX+(i+.5)*room.CELL,-room.RZ+(j+.5)*room.CELL];
+const free=(i,j)=>i>=0&&j>=0&&i<room.GX&&j<room.GZ&&!room.bl[i+j*room.GX];
+function nearestFree(i,j){if(free(i,j))return[i,j];for(let r=1;r<40;r++)for(let di=-r;di<=r;di++)for(let dj=-r;dj<=r;dj++)if(free(i+di,j+dj))return[i+di,j+dj];return[i,j]}
+function astar(from,to){const{GX,GZ,bl}=room;const[si,sj]=nearestFree(...toCell(from.x,from.z)),[ti,tj]=nearestFree(...toCell(to.x,to.z));const N=GX*GZ,g=new Float32Array(N).fill(1e9),came=new Int32Array(N).fill(-1),inO=new Uint8Array(N);
+ const s0=si+sj*GX,t0=ti+tj*GX;const open=[s0];g[s0]=0;inO[s0]=1;const h=k=>Math.hypot(k%GX-ti,((k/GX)|0)-tj);
+ while(open.length){let bi=0;for(let k=1;k<open.length;k++)if(g[open[k]]+h(open[k])<g[open[bi]]+h(open[bi]))bi=k;const cur=open.splice(bi,1)[0];inO[cur]=0;if(cur===t0)break;const ci=cur%GX,cj=(cur/GX)|0;
+  for(let di=-1;di<=1;di++)for(let dj=-1;dj<=1;dj++){if(!di&&!dj)continue;const a=ci+di,b=cj+dj;if(!free(a,b))continue;if(di&&dj&&(!free(ci+di,cj)||!free(ci,cj+dj)))continue;const n=a+b*GX,ng=g[cur]+(di&&dj?1.414:1);if(ng<g[n]){g[n]=ng;came[n]=cur;if(!inO[n]){open.push(n);inO[n]=1}}}}
+ const path=[];let k=t0;if(came[k]<0&&k!==s0)return[];while(k>=0&&k!==s0){const[x,z]=toWorld(k%GX,(k/GX)|0);path.unshift(new THREE.Vector3(x,0,z));k=came[k]}
+ const clear=(a,b)=>{const n=Math.ceil(a.distanceTo(b)/(room.CELL*.5));for(let s=1;s<n;s++){const p=a.clone().lerp(b,s/n);if(!free(...toCell(p.x,p.z)))return false}return true};
+ const out=[];let a=from.clone();for(let s=0;s<path.length;s++){if(s===path.length-1||!clear(a,path[s+1])){out.push(path[s]);a=path[s]}}return out}
+
+// ---------- visitor ----------
+const visitor=new THREE.Group();const vMat=new THREE.MeshStandardMaterial({color:0xb8442b,roughness:.7});
+const body=new THREE.Mesh(new THREE.CylinderGeometry(0.17,0.24,1.1,18),vMat);body.position.y=0.62;body.castShadow=true;
+const head=new THREE.Mesh(new THREE.SphereGeometry(0.17,20,14),new THREE.MeshStandardMaterial({color:0xf2ede2,roughness:.8}));head.position.y=1.38;head.castShadow=true;
+const nose=new THREE.Mesh(new THREE.BoxGeometry(0.08,0.05,0.12),new THREE.MeshStandardMaterial({color:0x1c1a17}));nose.position.set(0,1.38,0.17);
+const ring=new THREE.Mesh(new THREE.RingGeometry(0.32,0.38,32),new THREE.MeshBasicMaterial({color:0xb8442b,transparent:true,opacity:.6}));ring.rotation.x=-Math.PI/2;ring.position.y=0.012;
+visitor.add(body,head,nose,ring);scene.add(visitor);
+const marker=new THREE.Mesh(new THREE.RingGeometry(0.12,0.2,24),new THREE.MeshBasicMaterial({color:0x1c1a17,transparent:true,opacity:0}));marker.rotation.x=-Math.PI/2;marker.position.y=0.014;scene.add(marker);
+
+// ---------- UI state ----------
+let spaceIdx=0,mode='walk',focused=null,route=[],pending=null,hovered=null,lastArrive=null,overviewZoom=1,tw=null,cardOpen=innerWidth>720;
+const keys={};
+const url=p=>SITE+(lang==='ja'?'':'/'+lang)+p;
+function setHint(){$('#hint').textContent=T[lang][mode==='walk'?'hintWalk':'hintClick']}
+function renderSpaces(){const s=$('#spaces');s.innerHTML='';SPACES.forEach((S,i)=>{const b=document.createElement('button');b.setAttribute('aria-pressed',i===spaceIdx);b.innerHTML=`<b>${S.no}</b>${S.name[lang]}`;b.onclick=()=>goSpace(i);s.appendChild(b)})}
+function renderCard(){const S=SPACES[spaceIdx];$('#cK').textContent='SPACE '+S.no;$('#cName').textContent=S.name[lang];$('#cLede').textContent=S.lede[lang];
+ $('#cUses').innerHTML=S.uses.map(u=>`<li>${u[lang]}</li>`).join('');$('#cContact').href=url('/contact');$('#cAbout').href=url('/between-venues');
+ $('#card').hidden=!cardOpen;$('#cardOpen').hidden=cardOpen}
+function renderStrip(){const s=$('#strip');s.innerHTML='';room.items.forEach((it,i)=>{const b=document.createElement('button');b.className='chip';b.dataset.i=i;
+ const label=it.kind==='mag'?`<b>BV</b>${lang==='en'?'Issue 01':'創刊号'}`:`<b>${it.id}</b>${it.a.t[lang]}`;b.innerHTML=`<div class="th" style="background-image:url(${it.thumb})"></div><span>${label}</span>`;b.onclick=()=>select(it);s.appendChild(b)})}
+function applyLang(){document.documentElement.lang=lang==='zh'?'zh-Hans':lang;document.querySelectorAll('[data-t]').forEach(e=>e.textContent=T[lang][e.dataset.t]);
+ document.querySelectorAll('[data-tt]').forEach(e=>{e.title=T[lang][e.dataset.tt];e.setAttribute('aria-label',T[lang][e.dataset.tt])});
+ document.querySelectorAll('[data-lang]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.lang===lang));setHint();renderSpaces();renderCard();renderStrip();if(focused)fillSheet(focused)}
+function fillSheet(it){const L=T[lang];const S=SPACES[spaceIdx];const buy=$('#sBuy'),sub=$('#sSub');
+ if(it.kind==='mag'){$('#sNo').textContent=L.magNo;$('#sTitle').textContent=L.magTitle;$('#sArtist').textContent='';$('#sState').textContent=L.magState;
+  $('#sMeta').innerHTML=[[L.pub,L.magPub],[L.lang,L.magLang],[L.artists,L.magArt],[L.release,L.magRel]].map(([a,b])=>`<dt>${a}</dt><dd>${b}</dd>`).join('');
+  $('#sText').textContent=L.inThis+S.uses[0][lang];buy.textContent=L.magBuy;buy.href=url('/contact');buy.removeAttribute('aria-disabled');sub.hidden=false;sub.textContent=L.magSub;sub.href=url('/between-venues');$('#sNote').textContent=L.magNote}
+ else{const a=it.a;$('#sNo').textContent='WORK '+a.id;$('#sTitle').textContent=a.t[lang];$('#sArtist').textContent=a.artist[lang];$('#sState').textContent=L.inc;
+  $('#sMeta').innerHTML=[[L.size,`${Math.round(a.w*1000)} × ${Math.round(a.h*1000)} mm`],[L.medium,a.m[lang]]].map(([x,y])=>`<dt>${x}</dt><dd>${y}</dd>`).join('');
+  $('#sText').textContent=L.workNote;buy.textContent=L.tba;buy.removeAttribute('href');buy.setAttribute('aria-disabled','true');sub.hidden=true;$('#sNote').textContent=''}
+ $('#sBack').textContent=L.back;document.querySelectorAll('.chip').forEach(c=>c.classList.toggle('on',room.items[c.dataset.i]===it))}
+
+// ---------- camera ----------
+const ease=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
+function tweenTo(pos,tgt,zoom,ms=950){tw={t0:performance.now(),ms,p0:camera.position.clone(),t0v:target.clone(),z0:camera.zoom,p1:pos.clone(),t1:tgt.clone(),z1:zoom}}
+function frustumH(){return VIEW*(innerWidth<720?1.25:1)}
+function focus(it){focused=it;fillSheet(it);document.body.classList.add('focus');const vh=frustumH(),vw=vh*aspect;const availW=innerWidth>720?(innerWidth-380)/innerWidth:1,availH=innerWidth>720?1:0.42;
+ let pos,z;if(it.kind==='mag'){const d=new THREE.Vector3(Math.cos(azim)*0.55,1,Math.sin(azim)*0.55).normalize();pos=it.center.clone().add(d.multiplyScalar(30));z=Math.min(vh*availH/1.1,vw*availW/1.2)}
+ else{pos=it.center.clone().add(it.normal.clone().multiplyScalar(1.2));z=Math.min(vh*availH/(it.h*1.6),vw*availW/(it.w*1.5))}tweenTo(pos,it.center,z)}
+function unfocus(){if(!focused)return;focused=null;document.body.classList.remove('focus');document.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));
+ const tgt=mode==='walk'?new THREE.Vector3(visitor.position.x,.8,visitor.position.z):new THREE.Vector3(0,.8,0);tweenTo(tgt.clone().add(ISO),tgt,overviewZoom)}
+function faceable(it){if(it.kind==='mag')return;const st=Math.PI/4,cd=new THREE.Vector3(Math.cos(azimGoal),0,Math.sin(azimGoal));if(it.normal.dot(cd)>0.3)return;let best=azimGoal,bd=1e9;const base=Math.round(azimGoal/st)*st;
+ for(let k=-8;k<=8;k++){const a=base+k*st;if(it.normal.dot(new THREE.Vector3(Math.cos(a),0,Math.sin(a)))>0.6&&Math.abs(a-azimGoal)<bd){bd=Math.abs(a-azimGoal);best=a}}azimGoal=best}
+function select(it){faceable(it);if(mode==='click'){focus(it);return}if(focused)unfocus();route=astar(visitor.position,it.spot);pending=it;if(!route.length){focus(it);pending=null;return}showMarker(route[route.length-1])}
+function walkTo(p){if(focused)unfocus();pending=null;route=astar(visitor.position,p);if(route.length)showMarker(route[route.length-1])}
+function showMarker(p){marker.position.set(p.x,0.014,p.z);marker.material.opacity=.7}
+function rotate(d){if(!focused)azimGoal+=d*Math.PI/4}
+function goSpace(i){if(focused){focused=null;document.body.classList.remove('focus')}tw=null;spaceIdx=i;buildRoom(i);visitor.visible=mode==='walk';renderSpaces();renderCard();renderStrip();
+ try{localStorage.setItem('bv-space',String(i))}catch(e){}}
+
+// ---------- input ----------
+const ray=new THREE.Raycaster(),ndc=new THREE.Vector2();
+const vis=o=>{while(o){if(!o.visible)return false;o=o.parent}return true};
+function pick(e){const r=renderer.domElement.getBoundingClientRect();ndc.set(((e.clientX-r.left)/r.width)*2-1,-((e.clientY-r.top)/r.height)*2+1);ray.setFromCamera(ndc,camera);
+ const hit=ray.intersectObjects(room.clickables,false).find(h=>vis(h.object));if(hit)return{ref:hit.object.userData.ref};const f=ray.intersectObject(room.floor)[0];return f?{floor:f.point}:null}
+const ptrs=new Map();let drag=null,pinch0=null;
+stage.addEventListener('pointerdown',e=>{stage.setPointerCapture(e.pointerId);ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});if(ptrs.size===1)drag={x:e.clientX,y:e.clientY,moved:false,tgt:target.clone()};
+ if(ptrs.size===2){const[a,b]=[...ptrs.values()];pinch0={d:Math.hypot(a.x-b.x,a.y-b.y),z:camera.zoom};drag=null}});
+stage.addEventListener('pointermove',e=>{if(ptrs.has(e.pointerId))ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+ if(pinch0&&ptrs.size===2&&!focused){const[a,b]=[...ptrs.values()];overviewZoom=THREE.MathUtils.clamp(pinch0.z*Math.hypot(a.x-b.x,a.y-b.y)/pinch0.d,0.5,2.4);camera.zoom=overviewZoom;camera.updateProjectionMatrix();return}
+ if(drag){const dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(Math.hypot(dx,dy)>6)drag.moved=true;
+  if(drag.moved&&!focused&&mode==='click'){stage.classList.add('dragging');const s=frustumH()/innerHeight/camera.zoom;const fwd=new THREE.Vector3(-Math.cos(azim),0,-Math.sin(azim)),right=new THREE.Vector3(Math.sin(azim),0,-Math.cos(azim));
+   const nt=drag.tgt.clone().add(right.multiplyScalar(-dx*s)).add(fwd.multiplyScalar(dy*s*1.35));nt.x=THREE.MathUtils.clamp(nt.x,-room.RX,room.RX);nt.z=THREE.MathUtils.clamp(nt.z,-room.RZ,room.RZ);target.copy(nt)}return}
+ const p=pick(e);const ref=p&&p.ref;if(ref!==hovered){if(hovered&&hovered.hl)hovered.hl.material.opacity=0;hovered=ref||null;if(hovered&&hovered.hl&&!focused)hovered.hl.material.opacity=.9}
+ stage.classList.toggle('pointing',!!ref||(mode==='walk'&&!!(p&&p.floor)))});
+const end=e=>{ptrs.delete(e.pointerId);stage.classList.remove('dragging');if(ptrs.size<2)pinch0=null;
+ if(drag&&!drag.moved&&e.type==='pointerup'){const p=pick(e);if(p&&p.ref){if(focused!==p.ref)select(p.ref)}else if(focused)unfocus();else if(p&&p.floor&&mode==='walk')walkTo(p.floor)}drag=null};
+stage.addEventListener('pointerup',end);stage.addEventListener('pointercancel',end);
+stage.addEventListener('wheel',e=>{e.preventDefault();if(focused)return;overviewZoom=THREE.MathUtils.clamp(camera.zoom*Math.exp(-e.deltaY*0.0012),0.5,2.4);camera.zoom=overviewZoom;camera.updateProjectionMatrix()},{passive:false});
+addEventListener('keydown',e=>{if(e.key==='Escape')unfocus();if(e.key==='q'||e.key==='Q')rotate(1);if(e.key==='e'||e.key==='E')rotate(-1);keys[e.key.toLowerCase()]=true});addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false});
+$('#sBack').onclick=unfocus;$('#rotL').onclick=()=>rotate(1);$('#rotR').onclick=()=>rotate(-1);
+$('#cardClose').onclick=()=>{cardOpen=false;renderCard()};$('#cardOpen').onclick=()=>{cardOpen=true;renderCard()};
+$('#mWalk').onclick=()=>setMode('walk');$('#mClick').onclick=()=>setMode('click');
+document.querySelectorAll('[data-lang]').forEach(b=>b.onclick=()=>{lang=b.dataset.lang;try{localStorage.setItem('sg-lang',lang)}catch(e){}applyLang()});
+function setMode(m){mode=m;$('#mWalk').setAttribute('aria-pressed',m==='walk');$('#mClick').setAttribute('aria-pressed',m==='click');visitor.visible=m==='walk';marker.material.opacity=0;route=[];pending=null;setHint();
+ if(!focused){const tgt=m==='walk'?new THREE.Vector3(visitor.position.x,.8,visitor.position.z):new THREE.Vector3(0,.8,0);tweenTo(tgt.clone().add(ISO),tgt,overviewZoom)}}
+
+// ---------- loop ----------
+function resize(){const w=innerWidth,h=innerHeight;aspect=w/h;const vh=frustumH();camera.left=-vh*aspect/2;camera.right=vh*aspect/2;camera.top=vh/2;camera.bottom=-vh/2;camera.updateProjectionMatrix();renderer.setSize(w,h)}
+addEventListener('resize',resize);resize();
+function sheetOffset(){if(!focused)return[0,0];return innerWidth>720?[Math.min(380,innerWidth)/2,0]:[0,innerHeight*0.27]}
+function updateOffset(){const[ox,oy]=sheetOffset();const cur=camera.view&&camera.view.enabled?[camera.view.offsetX,camera.view.offsetY]:[0,0];const nx=cur[0]+(ox-cur[0])*0.22,ny=cur[1]+(oy-cur[1])*0.22;
+ if(Math.abs(nx)<0.5&&Math.abs(ny)<0.5&&!ox&&!oy)camera.clearViewOffset();else camera.setViewOffset(innerWidth,innerHeight,nx,ny,innerWidth,innerHeight)}
+const clock=new THREE.Clock();let bob=0;const tmp=new THREE.Vector3();
+function tick(){const dt=Math.min(clock.getDelta(),0.05);
+ if(!focused&&Math.abs(azimGoal-azim)>1e-4){azim+=(azimGoal-azim)*Math.min(1,dt*5);if(Math.abs(azimGoal-azim)<1e-3)azim=azimGoal;setISO()}
+ if(mode==='walk'&&!focused){const f=new THREE.Vector3(-Math.cos(azim),0,-Math.sin(azim)),r=new THREE.Vector3(Math.sin(azim),0,-Math.cos(azim));const v=new THREE.Vector3();
+  if(keys.w||keys.arrowup)v.add(f);if(keys.s||keys.arrowdown)v.sub(f);if(keys.d||keys.arrowright)v.add(r);if(keys.a||keys.arrowleft)v.sub(r);
+  if(v.lengthSq()){route=[];pending=null;marker.material.opacity=0;v.normalize().multiplyScalar(2.4*dt);const np=visitor.position.clone().add(v);if(free(...toCell(np.x,np.z)))visitor.position.copy(np);visitor.rotation.y=Math.atan2(v.x,v.z);bob+=dt*10}}
+ if(route.length&&mode==='walk'){const p=route[0];const d=p.clone().sub(visitor.position);d.y=0;const Ld=d.length(),step=3.2*dt;
+  if(Ld<=step){visitor.position.set(p.x,0,p.z);route.shift();if(!route.length){marker.material.opacity=0;if(pending){const it=pending;pending=null;tmp.copy(it.center).sub(visitor.position);visitor.rotation.y=Math.atan2(tmp.x,tmp.z);focus(it)}}}
+  else{d.multiplyScalar(step/Ld);visitor.position.add(d);visitor.rotation.y=Math.atan2(d.x,d.z);bob+=dt*10}}
+ if(mode==='walk'&&!focused&&!route.length){let near=null;for(const it of room.items){if(it.spot&&Math.hypot(it.spot.x-visitor.position.x,it.spot.z-visitor.position.z)<0.5)near=it}if(near&&near!==lastArrive){lastArrive=near;focus(near)}if(!near)lastArrive=null}
+ const bb=Math.abs(Math.sin(bob))*0.04;body.position.y=0.62+bb;head.position.y=1.38+bb;nose.position.y=head.position.y;ring.material.opacity=.45+Math.sin(performance.now()/400)*.15;
+ if(marker.material.opacity>0)marker.scale.setScalar(1+Math.sin(performance.now()/180)*.08);
+ if(tw){const k=ease(Math.min(1,(performance.now()-tw.t0)/tw.ms));const o0=tw.p0.clone().sub(tw.t0v),o1=tw.p1.clone().sub(tw.t1);const len=THREE.MathUtils.lerp(o0.length(),o1.length(),k);const dir=o0.normalize().lerp(o1.normalize(),k).normalize();
+  target.lerpVectors(tw.t0v,tw.t1,k);camera.position.copy(target).add(dir.multiplyScalar(len));camera.zoom=THREE.MathUtils.lerp(tw.z0,tw.z1,k);camera.updateProjectionMatrix();if(k>=1)tw=null}
+ else if(!focused&&mode==='walk'){target.lerp(tmp.set(visitor.position.x,0.8,visitor.position.z),0.06);camera.position.copy(target).add(ISO)}
+ else if(!focused){camera.position.copy(target).add(ISO)}
+ {const cd=camera.position.clone().sub(target);cd.y=0;cd.normalize();for(const w of room.outer){const goal=w.out.dot(cd)>0.15?0.3:WH;w.h+=(goal-w.h)*Math.min(1,dt*7);w.m.scale.y=w.h/WH;w.m.position.y=w.h/2;const show=w.h>WH*0.8;w.attached.forEach(g=>g.visible=show)}}
+ camera.lookAt(target);updateOffset();renderer.render(scene,camera);requestAnimationFrame(tick)}
+try{const s=localStorage.getItem('sg-lang');if(s&&T[s])lang=s;const q=new URLSearchParams(location.search).get('lang');if(q&&T[q])lang=q;const sp=+localStorage.getItem('bv-space');if(sp>=0&&sp<SPACES.length)spaceIdx=sp}catch(e){}
+buildRoom(spaceIdx);applyLang();requestAnimationFrame(tick);
+setTimeout(()=>{const l=$('#loader');l.style.opacity=0;setTimeout(()=>l.remove(),700)},350);
+})();
+</script>
+
+</body>
+</html>
