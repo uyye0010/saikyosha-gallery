@@ -61,6 +61,11 @@ h1{margin:4px 0 2px;font-family:"Shippori Mincho","Noto Serif JP","Songti SC",se
 .foot a{color:var(--ink)}
 #fade{position:fixed;inset:0;background:#000;opacity:0;pointer-events:none;transition:opacity .45s;z-index:6}#fade.on{opacity:1}
 .arcta{position:fixed;right:18px;bottom:44px;z-index:5;background:var(--ink);color:#141311;border:0;padding:12px 18px;font-weight:600;font-size:14px;cursor:pointer;box-shadow:0 6px 24px rgba(0,0,0,.35)}
+html.embed .top{background:none;border:0;padding:10px 12px;justify-content:flex-end}html.embed .top>div:first-child{display:none}html.embed [data-l]{display:none}
+html.embed .rooms{top:12px;left:12px;flex-direction:row;flex-wrap:wrap;right:330px}html.embed .room{min-width:0}
+html.embed .panel{width:min(400px,100%)}html.embed .arcta{bottom:44px}
+#b-full{background:var(--ink);color:#141311;font-weight:600}
+@media (max-width:720px){html.embed .rooms{right:8px;top:auto;bottom:8px;left:8px}html.embed .top{padding:6px}html.embed .arcta{bottom:64px}}
 .load{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--sub);z-index:10;background:var(--bg);transition:opacity .5s}
 @media (max-width:720px){
  h1{font-size:15px;margin:0}.top{padding:8px 10px}.dates{font-size:10px}.org{display:none}.tb{padding:4px 7px;font-size:11px}.badge{margin-left:0}
@@ -86,7 +91,7 @@ h1{margin:4px 0 2px;font-family:"Shippori Mincho","Noto Serif JP","Songti SC",se
   <div class="tools">
     <button class="tb" id="b-about"></button>
     <button class="tb" id="b-how"></button>
-    <button class="tb" id="b-snd" aria-pressed="false"></button><button class="tb" data-l="ja">日本語</button><button class="tb" data-l="zh">中文</button><button class="tb" data-l="en">EN</button>
+    <button class="tb" id="b-full"></button><button class="tb" id="b-snd" aria-pressed="false"></button><button class="tb" data-l="ja">日本語</button><button class="tb" data-l="zh">中文</button><button class="tb" data-l="en">EN</button>
   </div>
 </header>
 <nav class="rooms" id="rooms"></nav>
@@ -130,7 +135,8 @@ h1{margin:4px 0 2px;font-family:"Shippori Mincho","Noto Serif JP","Songti SC",se
 (function(){
 const PREVIEW = true;
 const T = window.AP_TEXT, W = window.AP_WORKS;
-const Q = new URLSearchParams(location.search); const HS=(location.hash||'').slice(1).split('-'); if(!Q.get('work')&&['piko','thistle','rebirth'].includes(HS[0])) Q.set('work',HS[0]); if(!Q.get('lang')&&['ja','zh','en'].includes(HS[1]||HS[0])) Q.set('lang',HS[1]||HS[0]);
+const Q = new URLSearchParams(location.search); const EMBED = Q.has('embed') || /(^|[#-])embed/.test(location.hash) || (window.self!==window.top);
+if(EMBED){ document.documentElement.classList.add('embed'); const rf=document.referrer||''; if(!Q.get('lang')) Q.set('lang', /\/zh(\/|$)/.test(rf)?'zh':/\/en(\/|$)/.test(rf)?'en':'ja'); } const HS=(location.hash||'').slice(1).split('-'); if(!Q.get('work')&&['piko','thistle','rebirth'].includes(HS[0])) Q.set('work',HS[0]); if(!Q.get('lang')&&['ja','zh','en'].includes(HS[1]||HS[0])) Q.set('lang',HS[1]||HS[0]);
 let lang = (Q.get('lang')||'').slice(0,2);
 if(!T[lang]){ const n=(navigator.language||'ja').toLowerCase(); lang = n.startsWith('zh')?'zh':n.startsWith('en')?'en':'ja'; }
 let room = 0, curWork = null, curItem = 0;
@@ -341,6 +347,7 @@ function setRoom(i, jump){
 }
 /* orbit controls (drag / wheel / pinch) */
 let down=null, moved=0, pinch=null;
+let lastAct=performance.now(); ['pointerdown','wheel','touchstart'].forEach(ev=>canvas.addEventListener(ev,()=>{ lastAct=performance.now(); },{passive:true}));
 canvas.addEventListener('pointerdown',e=>{ down={x:e.clientX,y:e.clientY}; moved=0; canvas.setPointerCapture(e.pointerId); canvas.classList.add('drag'); Object.values(videos).forEach(v=>v.play().catch(()=>{})); });
 canvas.addEventListener('pointermove',e=>{ if(!down||pinch) return; const dx=e.clientX-down.x, dy=e.clientY-down.y; moved+=Math.abs(dx)+Math.abs(dy); down={x:e.clientX,y:e.clientY};
   cam.tth-=dx*.006; cam.tph=Math.min(1.55,Math.max(.55,cam.tph-dy*.004)); });
@@ -364,6 +371,7 @@ const clock=new THREE.Clock();
   const off=new THREE.Vector3(Math.sin(cam.th)*Math.sin(cam.ph), Math.cos(cam.ph), Math.cos(cam.th)*Math.sin(cam.ph)).multiplyScalar(cam.r);
   camera.position.copy(cam.target).add(off); camera.lookAt(cam.target);
   anim.forEach(f=>f(t,room));
+  if(performance.now()-lastAct>4000 && !$('panel').classList.contains('open')) cam.tth+=.0016;
   if(floatGroup){ floatGroup.position.y=1.6+Math.sin(t*.8)*.07; floatGroup.rotation.y=Math.sin(t*.25)*.3; }
   if(starPts) starPts.rotation.y=t*.004;
   renderer.render(scene,camera); })();
@@ -464,13 +472,14 @@ function applyLang(l){
   $('a-introH').textContent=L.introH; $('a-intro').textContent=L.intro; $('a-bioH').textContent=L.bioH; $('a-bio').textContent=L.bio;
   $('a-site').textContent=L.artistSite+' ↗'; $('a-portrait').alt=L.portraitAlt; $('a-org2').textContent=L.organizer; $('a-contact').textContent=L.contact; $('a-back').textContent='← '+L.back;
   $('h-howH').textContent=L.howH; $('h-phone').textContent=L.howPhone; $('h-pc').textContent=L.howPC; $('h-req').textContent=L.howReq; $('h-noticeH').textContent=L.noticeH; $('h-notice').textContent=L.notice;
-  $('arcta').textContent=L.arCta+' ↗'; sndLabel(); $('a-sound').textContent=L.soundNote; $('px').setAttribute('aria-label',L.close); $('load').textContent=L.loading;
+  $('arcta').textContent=L.arCta+' ↗'; sndLabel(); $('b-full').textContent=L.full+' ↗'; $('b-full').style.display=EMBED?'':'none'; $('a-sound').textContent=L.soundNote; $('px').setAttribute('aria-label',L.close); $('load').textContent=L.loading;
   if(curWork){ renderPanel(); showItem(curItem); }
 }
 document.querySelectorAll('[data-l]').forEach(b=>b.onclick=()=>applyLang(b.dataset.l));
 $('px').onclick=()=>{ $('panel').classList.remove('open'); const pv=$('p-stage').querySelector('video'); if(pv) pv.pause(); Sound.setDuck(false); };
 function sndLabel(){ const L=T[lang], o=Sound.isOn(); $('b-snd').textContent=(o?'♪ ':'')+(o?L.sndOn:L.sndOff); $('b-snd').classList.toggle('on',o); $('b-snd').setAttribute('aria-pressed',String(o)); }
 $('b-snd').onclick=()=>{ Sound.toggle(); sndLabel(); };
+$('b-full').onclick=()=>{ const u=location.href.split('#')[0].split('?')[0]+'?lang='+lang+'&work='+W[room].id; window.open(u,'_blank','noopener'); };
 $('arcta').onclick=()=>{ openWork(W[room].id,0); setTimeout(()=>$('p-ar').scrollIntoView({behavior:'smooth',block:'center'}),400); };
 $('b-about').onclick=()=>$('m-about').classList.add('open');
 $('b-how').onclick=()=>$('m-how').classList.add('open');
@@ -480,7 +489,7 @@ addEventListener('keydown',e=>{ if(e.key==='Escape'){ document.querySelectorAll(
 applyLang(lang);
 const startRoom = Math.max(0, ['piko','thistle','rebirth'].indexOf(Q.get('work')||''));
 setRoom(startRoom, true);
-if(Q.get('work')) openWork(W[startRoom].id,0); else $('m-about').classList.add('open');
+if(Q.get('work')&&!EMBED) openWork(W[startRoom].id,0); else if(!EMBED) $('m-about').classList.add('open');
 setTimeout(()=>{ const l=$('load'); if(l){ l.style.opacity=0; setTimeout(()=>l.remove(),600);} },6000);
 })();
 </script>
