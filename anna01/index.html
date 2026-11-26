@@ -61,10 +61,11 @@ h1{margin:4px 0 2px;font-family:"Shippori Mincho","Noto Serif JP","Songti SC",se
 .foot a{color:var(--ink)}
 #fade{position:fixed;inset:0;background:#000;opacity:0;pointer-events:none;transition:opacity .45s;z-index:6}#fade.on{opacity:1}
 .arcta{position:fixed;right:18px;bottom:44px;z-index:5;background:var(--ink);color:#141311;border:0;padding:12px 18px;font-weight:600;font-size:14px;cursor:pointer;box-shadow:0 6px 24px rgba(0,0,0,.35)}
-html.embed .top{background:none;border:0;padding:10px 12px;justify-content:flex-end}html.embed .top>div:first-child{display:none}html.embed [data-l]{display:none}
+html.embed .top{background:none;border:0;padding:10px 28px 10px 12px;justify-content:flex-end;left:auto;max-width:60%}html.embed .top>div:first-child{display:none}html.embed [data-l]{display:none}
 html.embed .rooms{top:12px;left:12px;flex-direction:row;flex-wrap:wrap;right:330px}html.embed .room{min-width:0}
 html.embed .panel{width:min(400px,100%)}html.embed .arcta{bottom:44px}
 #b-full{background:var(--ink);color:#141311;font-weight:600}
+html.embed .tb{background:rgba(14,13,12,.82);border-color:rgba(243,239,230,.3)}
 @media (max-width:720px){html.embed .rooms{right:8px;top:auto;bottom:8px;left:8px}html.embed .top{padding:6px}html.embed .arcta{bottom:64px}}
 .load{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--sub);z-index:10;background:var(--bg);transition:opacity .5s}
 @media (max-width:720px){
@@ -130,7 +131,7 @@ html.embed .panel{width:min(400px,100%)}html.embed .arcta{bottom:44px}
 </div></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="i18n.js"></script>
+<script src="i18n.js?v=5"></script>
 <script>
 (function(){
 const PREVIEW = true;
@@ -363,13 +364,13 @@ function pick(e){ const r=canvas.getBoundingClientRect(); mv.set((e.clientX-r.le
 canvas.addEventListener('mousemove',e=>{ if(down) return; const r=canvas.getBoundingClientRect(); mv.set((e.clientX-r.left)/r.width*2-1, -(e.clientY-r.top)/r.height*2+1); ray.setFromCamera(mv,camera);
   const hit=ray.intersectObjects(clickables.filter(o=>rooms[room].getObjectById(o.id)),false)[0]; canvas.style.cursor=hit?'pointer':''; });
 
-function resize(){ const w=innerWidth,h=innerHeight; renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix(); }
+let zoomK=1; function resize(){ const w=innerWidth,h=innerHeight; renderer.setSize(w,h,false); const a=w/h; camera.aspect=a; camera.fov=a>2.2?37:a>1.6?41:45; zoomK=a>2.2?.95:a>1.6?.97:1; camera.updateProjectionMatrix(); }
 addEventListener('resize',resize); resize();
 const clock=new THREE.Clock();
 (function loop(){ requestAnimationFrame(loop); const t=clock.getElapsedTime(), k=.08;
   cam.target.lerp(cam.tt,k); cam.r+=(cam.tr-cam.r)*k; cam.th+=(cam.tth-cam.th)*k; cam.ph+=(cam.tph-cam.ph)*k;
   const off=new THREE.Vector3(Math.sin(cam.th)*Math.sin(cam.ph), Math.cos(cam.ph), Math.cos(cam.th)*Math.sin(cam.ph)).multiplyScalar(cam.r);
-  camera.position.copy(cam.target).add(off); camera.lookAt(cam.target);
+  off.multiplyScalar(zoomK); camera.position.copy(cam.target).add(off); camera.lookAt(cam.target);
   anim.forEach(f=>f(t,room));
   if(performance.now()-lastAct>4000 && !$('panel').classList.contains('open')) cam.tth+=.0016;
   if(floatGroup){ floatGroup.position.y=1.6+Math.sin(t*.8)*.07; floatGroup.rotation.y=Math.sin(t*.25)*.3; }
@@ -472,7 +473,7 @@ function applyLang(l){
   $('a-introH').textContent=L.introH; $('a-intro').textContent=L.intro; $('a-bioH').textContent=L.bioH; $('a-bio').textContent=L.bio;
   $('a-site').textContent=L.artistSite+' ↗'; $('a-portrait').alt=L.portraitAlt; $('a-org2').textContent=L.organizer; $('a-contact').textContent=L.contact; $('a-back').textContent='← '+L.back;
   $('h-howH').textContent=L.howH; $('h-phone').textContent=L.howPhone; $('h-pc').textContent=L.howPC; $('h-req').textContent=L.howReq; $('h-noticeH').textContent=L.noticeH; $('h-notice').textContent=L.notice;
-  $('arcta').textContent=L.arCta+' ↗'; sndLabel(); $('b-full').textContent=L.full+' ↗'; $('b-full').style.display=EMBED?'':'none'; $('a-sound').textContent=L.soundNote; $('px').setAttribute('aria-label',L.close); $('load').textContent=L.loading;
+  $('arcta').textContent=L.arCta+' ↗'; sndLabel(); $('b-full').textContent=(L.full||({ja:'全画面で見る',zh:'全屏观看',en:'Full screen'})[lang])+' ↗'; $('b-full').style.display=EMBED?'':'none'; $('a-sound').textContent=L.soundNote; $('px').setAttribute('aria-label',L.close); $('load').textContent=L.loading;
   if(curWork){ renderPanel(); showItem(curItem); }
 }
 document.querySelectorAll('[data-l]').forEach(b=>b.onclick=()=>applyLang(b.dataset.l));
